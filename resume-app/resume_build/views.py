@@ -1,6 +1,10 @@
 from django.shortcuts import render, redirect
 from .forms import ResumeForm
 
+def index(request):
+    return render(request, 'resume_build/index.html')
+
+
 def create_resume(request):
     if request.method == 'POST':
         form = ResumeForm(request.POST)
