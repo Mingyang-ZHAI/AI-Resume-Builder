@@ -1,0 +1,32 @@
+{% block content %}
+<h1>Resume Summary</h1>
+
+<h2>Basic Information</h2>
+<ul>
+    <li>Name: {{ resume.name }}</li>
+    <li>Country: {{ resume.country }}</li>
+    <li>City: {{ resume.city }}</li>
+    <li>Phone: {{ resume.phone }}</li>
+    <li>Email: {{ resume.email }}</li>
+    <li>Skills: {{ resume.skills }}</li>
+</ul>
+
+<h2>Education</h2>
+<ul>
+    {% for education in educations %}
+        <li>{{ education.start_year }}/{{ education.start_month }} - {{ education.end_year }}/{{ education.end_month }}: {{ education.school_name }} ({{ education.major }}, GPA: {{ education.gpa }})</li>
+    {% endfor %}
+</ul>
+
+<h2>Experience</h2>
+<ul>
+    {% for experience in experiences %}
+        <li>{{ experience.start_year }}/{{ experience.start_month }} - {{ experience.end_year }}/{{ experience.end_month }}: {{ experience.institution_name }} - {{ experience.position }}</li>
+        <ul>
+            {% for bullet in experience.bullet_points %}
+                <li>{{ bullet }}</li>
+            {% endfor %}
+        </ul>
+    {% endfor %}
+</ul>
+{% endblock %}

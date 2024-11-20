@@ -88,58 +88,63 @@ def get_cities(request):
 
     return JsonResponse({'suggestions': suggestions})
 
-
-
-
 from django.shortcuts import render, redirect
 from .forms import ResumeForm, ExperienceForm, EducationForm
-from .models import Experience, Education
+from .models import Experience, Education, Resume
+import openai
 
 def create_resume(request):
-    resume_form = ResumeForm()
-    experience_form = ExperienceForm()
-    education_form = EducationForm()
-    experiences = Experience.objects.all()
-    educations = Education.objects.all()
+    # Retrieve session data or initialize default empty values
+    resume_form = ResumeForm(request.POST or {
+        'name': request.session.get('name', ''),
+        'country': request.session.get('country', ''),
+        'city': request.session.get('city', ''),
+        'phone': request.session.get('phone', ''),
+        'email': request.session.get('email', ''),
+        'skills': request.session.get('skills', ''),
+    })
+
+    experience_form = ExperienceForm(request.POST or None)
+    education_form = EducationForm(request.POST or None)
+
+    # Load session data for experiences and educations
+    experiences = request.session.get('experiences', [])
+    educations = request.session.get('educations', [])
 
     if request.method == 'POST':
-        resume_form = ResumeForm(request.POST)
-        experience_form = ExperienceForm(request.POST)
-        education_form = EducationForm(request.POST)
+        # Check which button was clicked
+        if 'save_resume' in request.POST:
+            # Handle "Save Resume" action
+            if resume_form.is_valid():
+                # Save resume data to session
+                resume = resume_form.cleaned_data
+                request.session['name'] = resume['name']
+                request.session['country'] = resume['country']
+                request.session['city'] = resume['city']
+                request.session['phone'] = resume['phone']
+                request.session['email'] = resume['email']
+                request.session['skills'] = resume['skills']
 
-        if resume_form.is_valid():
-            resume = resume_form.save()
+                # Redirect to the summary page
+                return redirect('summary')
 
-            if 'add_experience' in request.POST:
-                if experience_form.is_valid():
-                    experience = experience_form.save(commit=False)
-                    experience.resume = resume
+        elif 'add_experience' in request.POST:
+            # Handle "Add Experience" action
+            if experience_form.is_valid():
+                experience = experience_form.cleaned_data
+                experiences.append(experience)
+                request.session['experiences'] = experiences
+                return redirect('create_resume')
 
-                    # Handle multiple bullet points
-                    bullet_points = request.POST.getlist('bullet_points[]')
-                    if bullet_points:
-                        experience.bullet_points = bullet_points
+        elif 'add_education' in request.POST:
+            # Handle "Add Education" action
+            if education_form.is_valid():
+                education = education_form.cleaned_data
+                educations.append(education)
+                request.session['educations'] = educations
+                return redirect('create_resume')
 
-                    experience.save()
-
-            if 'add_education' in request.POST:
-                if education_form.is_valid():
-                    education = education_form.save(commit=False)
-                    education.resume = resume
-                    education.save()
-
-            # Redirect after successful submission
-            return redirect('create_resume')
-        else:
-            # Display errors for invalid forms
-            return render(request, 'resume_build/create_resume.html', {
-                'resume_form': resume_form,
-                'experience_form': experience_form,
-                'education_form': education_form,
-                'experiences': experiences,
-                'educations': educations,
-            })
-
+    # Render the form with the existing data
     return render(request, 'resume_build/create_resume.html', {
         'resume_form': resume_form,
         'experience_form': experience_form,
@@ -149,6 +154,81 @@ def create_resume(request):
     })
 
 
+def summary(request):
+    # Retrieve data from the session
+    resume = {
+        'name': request.session.get('name', ''),
+        'country': request.session.get('country', ''),
+        'city': request.session.get('city', ''),
+        'phone': request.session.get('phone', ''),
+        'email': request.session.get('email', ''),
+        'skills': request.session.get('skills', ''),
+    }
+    experiences = request.session.get('experiences', [])
+    educations = request.session.get('educations', [])
+
+    # Render the summary page
+    return render(request, 'resume_build/summary.html', {
+        'resume': resume,
+        'experiences': experiences,
+        'educations': educations,
+    })
+
+
+
+def generate_ai_summary(resume, experiences, educations):
+    """
+    Generate AI summary for the resume based on user-provided data.
+    """
+    try:
+        content = f"Resume for {resume.name}:\n\n"
+        content += f"Country: {resume.country}, City: {resume.city}\n"
+        content += f"Phone: {resume.phone}, Email: {resume.email}\n"
+        content += f"Skills: {resume.skills}\n\n"
+
+        content += "Experience:\n"
+        for exp in experiences:
+            content += f"- {exp.start_year}/{exp.start_month} to {exp.end_year}/{exp.end_month}: "
+            content += f"{exp.institution_name} - {exp.position}\n"
+            if exp.bullet_points:
+                for point in exp.bullet_points:
+                    content += f"  - {point}\n"
+
+        content += "\nEducation:\n"
+        for edu in educations:
+            content += f"- {edu.start_year}/{edu.start_month} to {edu.end_year}/{edu.end_month}: "
+            content += f"{edu.school_name} ({edu.major}), GPA: {edu.gpa}\n"
+            if edu.scholarships:
+                content += f"  Scholarships: {edu.scholarships}\n"
+
+        # Use OpenAI API to summarize or improve the content
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Please summarize and polish this resume content:\n{content}",
+            max_tokens=300
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        return f"AI Summary Error: {str(e)}"
+
 
 def index(request):
     return render(request, 'resume_build/index.html')
+
+from django.shortcuts import render
+
+def summary(request):
+    # Example: Retrieve data you want to display in the summary page
+    resume_data = {
+        'name': request.session.get('name', ''),
+        'country': request.session.get('country', ''),
+        'city': request.session.get('city', ''),
+        'phone': request.session.get('phone', ''),
+        'email': request.session.get('email', ''),
+        'skills': request.session.get('skills', ''),
+        'educations': request.session.get('educations', []),
+        'experiences': request.session.get('experiences', [])
+    }
+
+    return render(request, 'resume_build/summary.html', {'resume_data': resume_data})
+
