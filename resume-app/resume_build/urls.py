@@ -9,4 +9,5 @@ urlpatterns = [
     path('api/countries/', views.get_countries, name='get_countries'),
     path('api/cities/', views.get_cities, name='get_cities'),
     path('summary/', views.summary, name='summary'),  # Add this line
+    path('generate_ai_response/', views.generate_ai_response, name='generate_ai_response'),
 ]

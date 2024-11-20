@@ -6,24 +6,22 @@
 <form method="post">
     {% csrf_token %}
     <label for="name-input">Name:</label>
-    <input type="text" id="name-input" name="name" required><br><br>
+    <input type="text" id="name-input" name="name" value="{{ resume_data.name }}" required><br><br>
 
     <label for="country-input">Country:</label>
-    <input type="text" id="country-input" name="country" placeholder="Start typing a country..." required>
-    <ul id="country-suggestions" class="suggestions"></ul><br><br>
+    <input type="text" id="country-input" name="country" value="{{ resume_data.country }}" placeholder="Start typing a country..." required><br><br>
 
     <label for="city-input">City:</label>
-    <input type="text" id="city-input" name="city" placeholder="Start typing a city..." required>
-    <ul id="city-suggestions" class="suggestions"></ul><br><br>
+    <input type="text" id="city-input" name="city" value="{{ resume_data.city }}" placeholder="Start typing a city..." required><br><br>
 
     <label for="phone-input">Phone:</label>
-    <input type="text" id="phone-input" name="phone" required><br><br>
+    <input type="text" id="phone-input" name="phone" value="{{ resume_data.phone }}" required><br><br>
 
     <label for="email-input">Email:</label>
-    <input type="email" id="email-input" name="email" required><br><br>
+    <input type="email" id="email-input" name="email" value="{{ resume_data.email }}" required><br><br>
 
     <label for="skills-input">Skills:</label>
-    <textarea id="skills-input" name="skills" rows="6" cols="50" style="resize: both; width: 100%;"></textarea><br><br>
+    <textarea id="skills-input" name="skills" rows="6" cols="50" style="resize: both; width: 100%;">{{ resume_data.skills }}</textarea><br><br>
 </form>
 
 <hr>
@@ -60,19 +58,9 @@
 </form>
 <ul>
     {% for education in educations %}
-        <li>
-            {{ education.start_year }}-{{ education.start_month }} to {{ education.end_year }}-{{ education.end_month }}: 
-            {{ education.school_name }} ({{ education.major }}, GPA: {{ education.gpa|default:"N/A" }})
-            {% if education.scholarships %}
-                <ul>
-                    <li>Scholarships: {{ education.scholarships }}</li>
-                </ul>
-            {% endif %}
-        </li>
+        <li>{{ education.start_year }}/{{ education.start_month }} - {{ education.end_year }}/{{ education.end_month }}: {{ education.school_name }} ({{ education.major }}, GPA: {{ education.gpa|default:"N/A" }})</li>
     {% endfor %}
 </ul>
-
-
 
 <hr>
 
@@ -111,7 +99,7 @@
 </form>
 <ul>
     {% for experience in experiences %}
-        <li>{{ experience.start_year }}-{{ experience.start_month }} to {{ experience.end_year }}-{{ experience.end_month }}: {{ experience.institution_name }} - {{ experience.position }}</li>
+        <li>{{ experience.start_year }}/{{ experience.start_month }} - {{ experience.end_year }}/{{ experience.end_month }}: {{ experience.institution_name }} - {{ experience.position }}</li>
         <ul>
             {% for bullet in experience.bullet_points %}
                 <li>{{ bullet }}</li>
@@ -123,56 +111,7 @@
 <!-- Save Resume Button -->
 <form method="post">
     {% csrf_token %}
-    <button type="submit" class="btn btn-primary">Save Resume</button>
+    <button type="submit" name="save_resume" class="btn btn-primary">Save Resume</button>
 </form>
-
 <a href="/" class="btn btn-link">Back to Home</a>
-
-<style>
-/* Suggestions style */
-.suggestions {
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
-    border: 1px solid #ccc;
-    max-height: 100px;
-    overflow-y: auto;
-    position: absolute;
-    background: white;
-    z-index: 1000;
-    width: 200px;
-}
-
-.suggestions li {
-    padding: 8px;
-    cursor: pointer;
-}
-
-.suggestions li:hover {
-    background-color: #f0f0f0;
-}
-</style>
-
-<script>
-// JavaScript for handling bullet points
-document.getElementById('add-bullet-point').addEventListener('click', function () {
-    const input = document.getElementById('bullet-point-input');
-    const bulletList = document.getElementById('bullet-points-list');
-
-    if (input.value.trim() !== '') {
-        const li = document.createElement('li');
-        li.textContent = input.value;
-        bulletList.appendChild(li);
-
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'bullet_points[]';
-        hiddenInput.value = input.value;
-        bulletList.appendChild(hiddenInput);
-
-        input.value = '';
-    }
-});
-</script>
-
 {% endblock %}

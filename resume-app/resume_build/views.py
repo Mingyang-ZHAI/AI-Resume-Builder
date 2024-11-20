@@ -90,90 +90,112 @@ def get_cities(request):
 
 from django.shortcuts import render, redirect
 from .forms import ResumeForm, ExperienceForm, EducationForm
-from .models import Experience, Education, Resume
+from .models import Resume, Experience, Education
+import openai
+
+openai.api_key = "your_openai_api_key_here"
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
 import openai
 
 def create_resume(request):
-    # Retrieve session data or initialize default empty values
-    resume_form = ResumeForm(request.POST or {
-        'name': request.session.get('name', ''),
-        'country': request.session.get('country', ''),
-        'city': request.session.get('city', ''),
-        'phone': request.session.get('phone', ''),
-        'email': request.session.get('email', ''),
-        'skills': request.session.get('skills', ''),
-    })
+    if 'resume_data' not in request.session:
+        request.session['resume_data'] = {
+            'name': '',
+            'country': '',
+            'city': '',
+            'phone': '',
+            'email': '',
+            'skills': '',
+            'educations': [],
+            'experiences': []
+        }
 
-    experience_form = ExperienceForm(request.POST or None)
-    education_form = EducationForm(request.POST or None)
-
-    # Load session data for experiences and educations
-    experiences = request.session.get('experiences', [])
-    educations = request.session.get('educations', [])
+    resume_data = request.session['resume_data']
 
     if request.method == 'POST':
-        # Check which button was clicked
         if 'save_resume' in request.POST:
-            # Handle "Save Resume" action
-            if resume_form.is_valid():
-                # Save resume data to session
-                resume = resume_form.cleaned_data
-                request.session['name'] = resume['name']
-                request.session['country'] = resume['country']
-                request.session['city'] = resume['city']
-                request.session['phone'] = resume['phone']
-                request.session['email'] = resume['email']
-                request.session['skills'] = resume['skills']
+            # Update basic information
+            resume_data.update({
+                'name': request.POST.get('name', resume_data['name']),
+                'country': request.POST.get('country', resume_data['country']),
+                'city': request.POST.get('city', resume_data['city']),
+                'phone': request.POST.get('phone', resume_data['phone']),
+                'email': request.POST.get('email', resume_data['email']),
+                'skills': request.POST.get('skills', resume_data['skills']),
+            })
 
-                # Redirect to the summary page
+            request.session['resume_data'] = resume_data  # Save back to session
+
+            # Generate AI prompt and call API
+            prompt = f"""
+            Name: {resume_data['name']}
+            Country: {resume_data['country']}
+            City: {resume_data['city']}
+            Phone: {resume_data['phone']}
+            Email: {resume_data['email']}
+            Skills: {resume_data['skills']}
+            """
+            prompt += "\nEducation:\n"
+            for edu in resume_data['educations']:
+                prompt += f"- {edu['start_year']}/{edu['start_month']} to {edu['end_year']}/{edu['end_month']}: {edu['school_name']} ({edu['major']}, GPA: {edu.get('gpa', 'N/A')})\n"
+
+            prompt += "\nExperience:\n"
+            for exp in resume_data['experiences']:
+                prompt += f"- {exp['start_year']}/{exp['start_month']} to {exp['end_year']}/{exp['end_month']}: {exp['institution_name']} ({exp['position']})\n"
+                for point in exp.get('bullet_points', []):
+                    prompt += f"  * {point}\n"
+
+            try:
+                response = openai.Completion.create(
+                    engine="text-davinci-003",
+                    prompt=prompt,
+                    max_tokens=300
+                )
+                request.session['ai_summary'] = response.choices[0].text.strip()
                 return redirect('summary')
-
-        elif 'add_experience' in request.POST:
-            # Handle "Add Experience" action
-            if experience_form.is_valid():
-                experience = experience_form.cleaned_data
-                experiences.append(experience)
-                request.session['experiences'] = experiences
-                return redirect('create_resume')
+            except Exception as e:
+                return render(request, 'resume_build/create_resume.html', {
+                    'resume_data': resume_data,
+                    'error': f"AI Error: {str(e)}"
+                })
 
         elif 'add_education' in request.POST:
-            # Handle "Add Education" action
-            if education_form.is_valid():
-                education = education_form.cleaned_data
-                educations.append(education)
-                request.session['educations'] = educations
-                return redirect('create_resume')
+            # Add education data
+            education = {
+                'start_year': request.POST.get('start_year'),
+                'start_month': request.POST.get('start_month'),
+                'end_year': request.POST.get('end_year'),
+                'end_month': request.POST.get('end_month'),
+                'school_name': request.POST.get('school_name'),
+                'major': request.POST.get('major'),
+                'gpa': request.POST.get('gpa'),
+                'scholarships': request.POST.get('scholarships')
+            }
+            resume_data['educations'].append(education)
+            request.session['resume_data'] = resume_data
+            return redirect('create_resume')
 
-    # Render the form with the existing data
+        elif 'add_experience' in request.POST:
+            # Add experience data
+            experience = {
+                'start_year': request.POST.get('start_year'),
+                'start_month': request.POST.get('start_month'),
+                'end_year': request.POST.get('end_year'),
+                'end_month': request.POST.get('end_month'),
+                'institution_name': request.POST.get('institution_name'),
+                'position': request.POST.get('position'),
+                'department_and_role': request.POST.get('department_and_role'),
+                'bullet_points': request.POST.getlist('bullet_points[]')
+            }
+            resume_data['experiences'].append(experience)
+            request.session['resume_data'] = resume_data
+            return redirect('create_resume')
+
     return render(request, 'resume_build/create_resume.html', {
-        'resume_form': resume_form,
-        'experience_form': experience_form,
-        'education_form': education_form,
-        'experiences': experiences,
-        'educations': educations,
+        'resume_data': resume_data,
+        'ai_summary': request.session.get('ai_summary', ''),
     })
-
-
-def summary(request):
-    # Retrieve data from the session
-    resume = {
-        'name': request.session.get('name', ''),
-        'country': request.session.get('country', ''),
-        'city': request.session.get('city', ''),
-        'phone': request.session.get('phone', ''),
-        'email': request.session.get('email', ''),
-        'skills': request.session.get('skills', ''),
-    }
-    experiences = request.session.get('experiences', [])
-    educations = request.session.get('educations', [])
-
-    # Render the summary page
-    return render(request, 'resume_build/summary.html', {
-        'resume': resume,
-        'experiences': experiences,
-        'educations': educations,
-    })
-
 
 
 def generate_ai_summary(resume, experiences, educations):
@@ -214,6 +236,35 @@ def generate_ai_summary(resume, experiences, educations):
 
 def index(request):
     return render(request, 'resume_build/index.html')
+
+from django.shortcuts import render
+from django.http import JsonResponse
+import openai
+
+def generate_ai_response(request):
+    if request.method == 'POST':
+        user_input = request.POST.get('user_input', '')
+
+        if not user_input:
+            return render(request, 'resume_build/create_resume.html', {
+                'error': 'Please provide input for AI.',
+            })
+
+        # Call OpenAI API (make sure your API key is configured correctly)
+        openai.api_key = "your_openai_api_key_here"
+        try:
+            response = openai.Completion.create(
+                engine="text-davinci-003",
+                prompt=user_input,
+                max_tokens=150
+            )
+            ai_output = response.choices[0].text.strip()
+            return render(request, 'resume_build/summary.html', {'ai_output': ai_output})
+        except Exception as e:
+            return render(request, 'resume_build/create_resume.html', {
+                'error': f"AI interaction failed: {e}",
+            })
+
 
 from django.shortcuts import render
 
