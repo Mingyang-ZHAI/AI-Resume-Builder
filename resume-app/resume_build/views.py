@@ -1,99 +1,154 @@
-# from django.shortcuts import render, redirect
-# from .forms import ResumeForm
-
-# def index(request):
-#     return render(request, 'resume_build/index.html')
-
-
-# def create_resume(request):
-#     if request.method == 'POST':
-#         form = ResumeForm(request.POST)
-#         if form.is_valid():
-#             form.save()  # Save the data to the database
-#             return redirect('index')  # Redirect after saving
-#     else:
-#         form = ResumeForm()
-
-#     return render(request, 'resume_build/create_resume.html', {'form': form})
-
 from django.shortcuts import render, redirect
 from .forms import ResumeForm
 from django.http import JsonResponse
 import openai
 from django.contrib import messages
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login
 
 # 配置 OpenAI API Key
 openai.api_key = "your_openai_api_key_here"
 
-
 def signup(request):
     if request.method == 'POST':
-        # Example: Fetch form data
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        # Implement signup logic here (e.g., save user data to the database)
-        if username and password:
-            # You can add user creation logic here
-            messages.success(request, f'Account created for {username}!')
+        # 检查用户名是否已存在
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'Username already exists.')
+            return render(request, 'signup.html')
 
-            # Redirect to a specific page after successful signup
-            return redirect('index')  # Change 'index' to your desired page name
-        else:
-            messages.error(request, 'Please fill in all required fields.')
+        # 创建用户
+        user = User.objects.create_user(username=username, password=password)
+        user.save()
 
-    # Render the signup page if GET request or validation fails
+        messages.success(request, 'Signup successful! You can now login.')
+        return render(request, 'login.html')  # 跳转到登录页面
     return render(request, 'signup.html')
 
-def create_resume(request):
+
+def signin(request):
     if request.method == 'POST':
-        form = ResumeForm(request.POST)
-        if form.is_valid():
-            # 保存用户提交的数据
-            resume = form.save()
+        username = request.POST.get('username')
+        password = request.POST.get('password')
 
-            # 构建 GPT prompt
-            prompt = f"""
-            Optimize the following resume information:
+        # 验证用户名和密码
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            return render(request, 'home.html')  # 登录成功后跳转到主页
+        else:
+            return render(request, 'login.html', {'error': 'Invalid username or password.'})
+    return render(request, 'login.html')
 
-            Name: {resume.name}
-            Email: {resume.email}
-            Phone: {resume.phone}
 
-            Education:
-            {resume.education}
 
-            Skills:
-            {resume.skills}
+from django.shortcuts import render
+from django.http import JsonResponse
+from .forms import ResumeForm
+import openai
+import requests
 
-            Work Experience:
-            {resume.work_experience}
+# 国家联想接口
+# 示例国家数据
+COUNTRIES = ['Canada', 'China', 'United States', 'India', 'Mexico']
 
-            Additional Information:
-            {resume.additional_info}
-            """
+def get_countries(request):
+    query = request.GET.get('query', '')
+    if not query:
+        return JsonResponse({'error': 'No query provided'}, status=400)
 
-            # 调用 GPT API
-            try:
-                response = openai.Completion.create(
-                    engine="text-davinci-003",
-                    prompt=prompt,
-                    max_tokens=500,
-                    temperature=0.7,
-                )
-                optimized_resume = response.choices[0].text.strip()
+    # 筛选匹配的国家
+    suggestions = [country for country in COUNTRIES if query.lower() in country.lower()]
+    return JsonResponse({'suggestions': suggestions})
 
-                return render(request, 'optimized_resume.html', {
-                    'optimized_resume': optimized_resume,
-                    'form': form
-                })
 
-            except Exception as e:
-                return JsonResponse({'error': str(e)}, status=500)
-    else:
-        form = ResumeForm()
+# 城市联想接口
+# 示例城市数据
+CITIES = {
+    'Canada': ['Toronto, ON', 'Vancouver, BC', 'Montreal, QC', 'Ottawa, ON'],
+    'China': ['Beijing', 'Shanghai', 'Tianjin', 'Shenzhen'],
+    'United States': ['New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX'],
+    'India': ['Delhi', 'Mumbai', 'Bangalore', 'Hyderabad'],
+    'Mexico': ['Mexico City', 'Guadalajara', 'Monterrey']
+}
 
-    return render(request, 'create_resume.html', {'form': form})
+def get_cities(request):
+    query = request.GET.get('query', '')
+    country = request.GET.get('country', '')
+    suggestions = []
+
+    if not query or not country:
+        return JsonResponse({'error': 'Both query and country are required'}, status=400)
+
+    # 检查国家是否在 CITIES 数据中
+    if country in CITIES:
+        suggestions = [city for city in CITIES[country] if query.lower() in city.lower()]
+
+    return JsonResponse({'suggestions': suggestions})
+
+
+
+
+from django.shortcuts import render, redirect
+from .forms import ResumeForm, ExperienceForm, EducationForm
+from .models import Experience, Education
+
+def create_resume(request):
+    resume_form = ResumeForm()
+    experience_form = ExperienceForm()
+    education_form = EducationForm()
+    experiences = Experience.objects.all()
+    educations = Education.objects.all()
+
+    if request.method == 'POST':
+        resume_form = ResumeForm(request.POST)
+        experience_form = ExperienceForm(request.POST)
+        education_form = EducationForm(request.POST)
+
+        if resume_form.is_valid():
+            resume = resume_form.save()
+
+            if 'add_experience' in request.POST:
+                if experience_form.is_valid():
+                    experience = experience_form.save(commit=False)
+                    experience.resume = resume
+
+                    # Handle multiple bullet points
+                    bullet_points = request.POST.getlist('bullet_points[]')
+                    if bullet_points:
+                        experience.bullet_points = bullet_points
+
+                    experience.save()
+
+            if 'add_education' in request.POST:
+                if education_form.is_valid():
+                    education = education_form.save(commit=False)
+                    education.resume = resume
+                    education.save()
+
+            # Redirect after successful submission
+            return redirect('create_resume')
+        else:
+            # Display errors for invalid forms
+            return render(request, 'resume_build/create_resume.html', {
+                'resume_form': resume_form,
+                'experience_form': experience_form,
+                'education_form': education_form,
+                'experiences': experiences,
+                'educations': educations,
+            })
+
+    return render(request, 'resume_build/create_resume.html', {
+        'resume_form': resume_form,
+        'experience_form': experience_form,
+        'education_form': education_form,
+        'experiences': experiences,
+        'educations': educations,
+    })
+
+
 
 def index(request):
     return render(request, 'resume_build/index.html')

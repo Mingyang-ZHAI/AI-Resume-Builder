@@ -1,71 +1,178 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Resume</title>
-</head>
-<body>
-    <h1>Create a New Resume</h1>
-    <form method="POST">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Save Resume</button>
-    </form>
-</body>
-</html> -->
+{% block content %}
+<h1>Create a New Resume</h1>
+<p>Fill out the form below to create a new resume:</p>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Resume</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            padding: 20px;
-        }
-        form {
-            margin: 20px 0;
-        }
-        label {
-            display: block;
-            margin-top: 10px;
-            font-weight: bold;
-        }
-        input, textarea, button {
-            display: block;
-            width: 100%;
-            margin-top: 5px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            width: auto;
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-    </style>
-</head>
-<body>
-    <h1>Create a New Resume</h1>
-    <p>Fill out the form below to create a new resume:</p>
-    <form method="POST">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Save Resume</button>
-    </form>
-    <br>
-    <a href="{% url 'index' %}">Back to Home</a>
-</body>
-</html>
+<!-- Form for Resume Basic Information -->
+<form method="post">
+    {% csrf_token %}
+    <label for="name-input">Name:</label>
+    <input type="text" id="name-input" name="name" required><br><br>
+
+    <label for="country-input">Country:</label>
+    <input type="text" id="country-input" name="country" placeholder="Start typing a country..." required>
+    <ul id="country-suggestions" class="suggestions"></ul><br><br>
+
+    <label for="city-input">City:</label>
+    <input type="text" id="city-input" name="city" placeholder="Start typing a city..." required>
+    <ul id="city-suggestions" class="suggestions"></ul><br><br>
+
+    <label for="phone-input">Phone:</label>
+    <input type="text" id="phone-input" name="phone" required><br><br>
+
+    <label for="email-input">Email:</label>
+    <input type="email" id="email-input" name="email" required><br><br>
+
+    <label for="skills-input">Skills:</label>
+    <textarea id="skills-input" name="skills" rows="6" cols="50" style="resize: both; width: 100%;"></textarea><br><br>
+</form>
+
+<hr>
+
+<!-- Education Section -->
+<h2>Education</h2>
+<form method="post">
+    {% csrf_token %}
+    <label for="start-year-education">Start Year:</label>
+    <input type="number" id="start-year-education" name="start_year" placeholder="YYYY" required><br><br>
+
+    <label for="start-month-education">Start Month:</label>
+    <input type="number" id="start-month-education" name="start_month" placeholder="MM" min="1" max="12" required><br><br>
+
+    <label for="end-year-education">End Year:</label>
+    <input type="number" id="end-year-education" name="end_year" placeholder="YYYY" required><br><br>
+
+    <label for="end-month-education">End Month:</label>
+    <input type="number" id="end-month-education" name="end_month" placeholder="MM" min="1" max="12" required><br><br>
+
+    <label for="school-name">School Name:</label>
+    <input type="text" id="school-name" name="school_name" required><br><br>
+
+    <label for="major">Major:</label>
+    <input type="text" id="major" name="major" required><br><br>
+
+    <label for="gpa">GPA:</label>
+    <input type="number" step="0.01" id="gpa" name="gpa" placeholder="Optional"><br><br>
+
+    <label for="scholarships">Scholarships:</label>
+    <textarea id="scholarships" name="scholarships" placeholder="Describe scholarships or awards (Optional)" rows="4" cols="50"></textarea><br><br>
+
+    <button type="submit" name="add_education" class="btn btn-success">Add Education</button>
+</form>
+<ul>
+    {% for education in educations %}
+        <li>
+            {{ education.start_year }}-{{ education.start_month }} to {{ education.end_year }}-{{ education.end_month }}: 
+            {{ education.school_name }} ({{ education.major }}, GPA: {{ education.gpa|default:"N/A" }})
+            {% if education.scholarships %}
+                <ul>
+                    <li>Scholarships: {{ education.scholarships }}</li>
+                </ul>
+            {% endif %}
+        </li>
+    {% endfor %}
+</ul>
+
+
+
+<hr>
+
+<!-- Experience Section -->
+<h2>Experience</h2>
+<form method="post">
+    {% csrf_token %}
+    <label for="start-year">Start Year:</label>
+    <input type="number" id="start-year" name="start_year" placeholder="YYYY" required><br><br>
+
+    <label for="start-month">Start Month:</label>
+    <input type="number" id="start-month" name="start_month" placeholder="MM" min="1" max="12" required><br><br>
+
+    <label for="end-year">End Year:</label>
+    <input type="number" id="end-year" name="end_year" placeholder="YYYY" required><br><br>
+
+    <label for="end-month">End Month:</label>
+    <input type="number" id="end-month" name="end_month" placeholder="MM" min="1" max="12" required><br><br>
+
+    <label for="institution-name">Institution Name:</label>
+    <input type="text" id="institution-name" name="institution_name" required><br><br>
+
+    <label for="position">Position:</label>
+    <input type="text" id="position" name="position" required><br><br>
+
+    <label for="department-and-role">Department:</label>
+    <textarea id="department-and-role" name="department_and_role" rows="3" cols="50"></textarea><br><br>
+
+    <!-- Bullet Points Section -->
+    <h3>Detailed Bullet Points</h3>
+    <input type="text" id="bullet-point-input" placeholder="Enter a bullet point" name="bullet_point">
+    <button type="button" id="add-bullet-point">Add Bullet Point</button>
+    <ul id="bullet-points-list"></ul>
+
+    <button type="submit" name="add_experience" class="btn btn-success">Add Experience</button>
+</form>
+<ul>
+    {% for experience in experiences %}
+        <li>{{ experience.start_year }}-{{ experience.start_month }} to {{ experience.end_year }}-{{ experience.end_month }}: {{ experience.institution_name }} - {{ experience.position }}</li>
+        <ul>
+            {% for bullet in experience.bullet_points %}
+                <li>{{ bullet }}</li>
+            {% endfor %}
+        </ul>
+    {% endfor %}
+</ul>
+
+<!-- Save Resume Button -->
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">Save Resume</button>
+</form>
+
+<a href="/" class="btn btn-link">Back to Home</a>
+
+<style>
+/* Suggestions style */
+.suggestions {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #ccc;
+    max-height: 100px;
+    overflow-y: auto;
+    position: absolute;
+    background: white;
+    z-index: 1000;
+    width: 200px;
+}
+
+.suggestions li {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.suggestions li:hover {
+    background-color: #f0f0f0;
+}
+</style>
+
+<script>
+// JavaScript for handling bullet points
+document.getElementById('add-bullet-point').addEventListener('click', function () {
+    const input = document.getElementById('bullet-point-input');
+    const bulletList = document.getElementById('bullet-points-list');
+
+    if (input.value.trim() !== '') {
+        const li = document.createElement('li');
+        li.textContent = input.value;
+        bulletList.appendChild(li);
+
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'bullet_points[]';
+        hiddenInput.value = input.value;
+        bulletList.appendChild(hiddenInput);
+
+        input.value = '';
+    }
+});
+</script>
+
+{% endblock %}
