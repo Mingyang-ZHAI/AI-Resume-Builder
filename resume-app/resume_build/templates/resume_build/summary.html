@@ -1,32 +1,45 @@
-{% block content %}
 <h1>Resume Summary</h1>
 
 <h2>Basic Information</h2>
 <ul>
-    <li>Name: {{ resume_data.name }}</li>
-    <li>Country: {{ resume_data.country }}</li>
-    <li>City: {{ resume_data.city }}</li>
-    <li>Phone: {{ resume_data.phone }}</li>
-    <li>Email: {{ resume_data.email }}</li>
-    <li>Skills: {{ resume_data.skills }}</li>
+    <li>Name: {{ resume.name }}</li>
+    <li>Country: {{ resume.country }}</li>
+    <li>City: {{ resume.city }}</li>
+    <li>Phone: {{ resume.phone }}</li>
+    <li>Email: {{ resume.email }}</li>
+    <li>Skills: {{ resume.skills }}</li>
 </ul>
 
 <h2>Education</h2>
 <ul>
-    {% for education in resume_data.educations %}
-        <li>{{ education.start_year }}/{{ education.start_month }} - {{ education.end_year }}/{{ education.end_month }}: {{ education.school_name }} ({{ education.major }}, GPA: {{ education.gpa }})</li>
+    {% for edu in educations %}
+        <li>
+            {{ edu.start_year }}-{{ edu.start_month }} to {{ edu.end_year }}-{{ edu.end_month }}:
+            {{ edu.school_name }} ({{ edu.major }}, GPA: {{ edu.gpa|default:"N/A" }})
+            {% if edu.scholarships %}
+                <ul>
+                    <li>Scholarships: {{ edu.scholarships }}</li>
+                </ul>
+            {% endif %}
+        </li>
     {% endfor %}
 </ul>
 
+
 <h2>Experience</h2>
 <ul>
-    {% for experience in resume_data.experiences %}
-        <li>{{ experience.start_year }}/{{ experience.start_month }} - {{ experience.end_year }}/{{ experience.end_month }}: {{ experience.institution_name }} - {{ experience.position }}</li>
-        <ul>
-            {% for bullet in experience.bullet_points %}
-                <li>{{ bullet }}</li>
-            {% endfor %}
-        </ul>
+    {% for exp in experiences %}
+        <li>
+            {{ exp.start_year }}/{{ exp.start_month }} - {{ exp.end_year }}/{{ exp.end_month }}:
+            {{ exp.institution_name }} - {{ exp.position }}
+            <ul>
+                <li>{{ exp.department_and_role }}</li>
+                <ul>
+                    {% for point in exp.bullet_points.splitlines %}
+                        <li>{{ point }}</li>
+                    {% endfor %}
+                </ul>
+            </ul>
+        </li>
     {% endfor %}
 </ul>
-{% endblock %}

@@ -1,5 +1,6 @@
 {% block content %}
 <h1>Create a New Resume</h1>
+
 <p>Fill out the form below to create a new resume:</p>
 
 <!-- Form for Resume Basic Information -->
@@ -25,6 +26,7 @@
 </form>
 
 <hr>
+
 
 <!-- Education Section -->
 <h2>Education</h2>
@@ -58,7 +60,15 @@
 </form>
 <ul>
     {% for education in educations %}
-        <li>{{ education.start_year }}/{{ education.start_month }} - {{ education.end_year }}/{{ education.end_month }}: {{ education.school_name }} ({{ education.major }}, GPA: {{ education.gpa|default:"N/A" }})</li>
+        <li>
+            {{ education.start_year }}-{{ education.start_month }} to {{ education.end_year }}-{{ education.end_month }}: 
+            {{ education.school_name }} ({{ education.major }}, GPA: {{ education.gpa|default:"N/A" }})
+            {% if education.scholarships %}
+                <ul>
+                    <li>Scholarships: {{ education.scholarships }}</li>
+                </ul>
+            {% endif %}
+        </li>
     {% endfor %}
 </ul>
 
@@ -97,21 +107,82 @@
 
     <button type="submit" name="add_experience" class="btn btn-success">Add Experience</button>
 </form>
+
 <ul>
     {% for experience in experiences %}
-        <li>{{ experience.start_year }}/{{ experience.start_month }} - {{ experience.end_year }}/{{ experience.end_month }}: {{ experience.institution_name }} - {{ experience.position }}</li>
-        <ul>
-            {% for bullet in experience.bullet_points %}
-                <li>{{ bullet }}</li>
-            {% endfor %}
-        </ul>
+        <li>
+            {{ experience.start_year }}/{{ experience.start_month }} to {{ experience.end_year }}/{{ experience.end_month }}: 
+            {{ experience.institution_name }} - {{ experience.position }}
+            <br>Department: {{ experience.department_and_role }}
+
+            {% if experience.bullet_points %}
+                <ul>
+                    {% for bullet in experience.bullet_points %}
+                        <li>{{ bullet }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No bullet points added.</p>
+            {% endif %}
+        </li>
     {% endfor %}
 </ul>
 
-<!-- Save Resume Button -->
+
+
+
+<!-- Save All Entries Button -->
 <form method="post">
     {% csrf_token %}
-    <button type="submit" name="save_resume" class="btn btn-primary">Save Resume</button>
+    <button type="submit" name="save_resume">Save All Entries</button>
 </form>
+
 <a href="/" class="btn btn-link">Back to Home</a>
+
+<style>
+/* Suggestions style */
+.suggestions {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #ccc;
+    max-height: 100px;
+    overflow-y: auto;
+    position: absolute;
+    background: white;
+    z-index: 1000;
+    width: 200px;
+}
+
+.suggestions li {
+    padding: 8px;
+    cursor: pointer;
+}
+
+.suggestions li:hover {
+    background-color: #f0f0f0;
+}
+</style>
+
+<script>
+// JavaScript for handling bullet points
+document.getElementById('add-bullet-point').addEventListener('click', function () {
+    const input = document.getElementById('bullet-point-input');
+    const bulletList = document.getElementById('bullet-points-list');
+
+    if (input.value.trim() !== '') {
+        const li = document.createElement('li');
+        li.textContent = input.value;
+        bulletList.appendChild(li);
+
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'bullet_points[]';
+        hiddenInput.value = input.value;
+        bulletList.appendChild(hiddenInput);
+
+        input.value = '';
+    }
+});
+</script>
 {% endblock %}

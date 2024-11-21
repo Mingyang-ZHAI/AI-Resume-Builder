@@ -33,7 +33,7 @@ class ExperienceForm(forms.ModelForm):
             'institution_name',
             'position',
             'department_and_role',
-            'content',
+            'bullet_point',
         ]
 
 
@@ -43,7 +43,7 @@ class EducationForm(forms.ModelForm):
         model = Education
         fields = [
             'start_year', 'start_month', 'end_year', 'end_month',
-            'school_name', 'major', 'gpa', 'content',
+            'school_name', 'major', 'gpa', 'scholarships',
         ]
 
 

@@ -98,102 +98,103 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 import openai
 
-def create_resume(request):
-    if 'resume_data' not in request.session:
-        request.session['resume_data'] = {
-            'name': '',
-            'country': '',
-            'city': '',
-            'phone': '',
-            'email': '',
-            'skills': '',
-            'educations': [],
-            'experiences': []
-        }
 
-    resume_data = request.session['resume_data']
+
+from django.contrib.auth.decorators import login_required
+from .models import Resume, Education, Experience
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from .models import Resume, Education, Experience
+from .forms import ResumeForm, EducationForm, ExperienceForm
+import openai
+
+@login_required
+def create_resume(request):
+    # 获取用户的 Resume 对象（如果不存在，则创建一个新的）
+    resume, created = Resume.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
+        # 基本信息保存
         if 'save_resume' in request.POST:
-            # Update basic information
-            resume_data.update({
-                'name': request.POST.get('name', resume_data['name']),
-                'country': request.POST.get('country', resume_data['country']),
-                'city': request.POST.get('city', resume_data['city']),
-                'phone': request.POST.get('phone', resume_data['phone']),
-                'email': request.POST.get('email', resume_data['email']),
-                'skills': request.POST.get('skills', resume_data['skills']),
-            })
+            resume_form = ResumeForm(request.POST, instance=resume)
+            if resume_form.is_valid():
+                resume = resume_form.save()
 
-            request.session['resume_data'] = resume_data  # Save back to session
+                # 生成 AI 提示词
+                prompt = f"""
+                Name: {resume.name}
+                Country: {resume.country}
+                City: {resume.city}
+                Phone: {resume.phone}
+                Email: {resume.email}
+                Skills: {resume.skills}
+                """
 
-            # Generate AI prompt and call API
-            prompt = f"""
-            Name: {resume_data['name']}
-            Country: {resume_data['country']}
-            City: {resume_data['city']}
-            Phone: {resume_data['phone']}
-            Email: {resume_data['email']}
-            Skills: {resume_data['skills']}
-            """
-            prompt += "\nEducation:\n"
-            for edu in resume_data['educations']:
-                prompt += f"- {edu['start_year']}/{edu['start_month']} to {edu['end_year']}/{edu['end_month']}: {edu['school_name']} ({edu['major']}, GPA: {edu.get('gpa', 'N/A')})\n"
+                # 教育经历
+                prompt += "\nEducation:\n"
+                educations = Education.objects.filter(resume=resume)
+                for edu in educations:
+                    prompt += f"- {edu.start_year}/{edu.start_month} to {edu.end_year}/{edu.end_month}: {edu.school_name} ({edu.major}, GPA: {edu.gpa or 'N/A'})\n"
 
-            prompt += "\nExperience:\n"
-            for exp in resume_data['experiences']:
-                prompt += f"- {exp['start_year']}/{exp['start_month']} to {exp['end_year']}/{exp['end_month']}: {exp['institution_name']} ({exp['position']})\n"
-                for point in exp.get('bullet_points', []):
-                    prompt += f"  * {point}\n"
+                # 工作经历
+                prompt += "\nExperience:\n"
+                experiences = Experience.objects.filter(resume=resume)
+                for exp in experiences:
+                    prompt += f"- {exp.start_year}/{exp.start_month} to {exp.end_year}/{exp.end_month}: {exp.institution_name} ({exp.position})\n"
+                    if exp.department_and_role:
+                        prompt += f"  Department: {exp.department_and_role}\n"
+                    if exp.bullet_points:
+                        for point in exp.bullet_points:
+                            prompt += f"  * {point}\n"
 
-            try:
-                response = openai.Completion.create(
-                    engine="text-davinci-003",
-                    prompt=prompt,
-                    max_tokens=300
-                )
-                request.session['ai_summary'] = response.choices[0].text.strip()
-                return redirect('summary')
-            except Exception as e:
-                return render(request, 'resume_build/create_resume.html', {
-                    'resume_data': resume_data,
-                    'error': f"AI Error: {str(e)}"
-                })
+                # 调用 OpenAI API
+                try:
+                    response = openai.Completion.create(
+                        engine="text-davinci-003",
+                        prompt=prompt,
+                        max_tokens=300
+                    )
+                    request.session['ai_summary'] = response.choices[0].text.strip()
+                    return redirect('summary')
+                except Exception as e:
+                    return render(request, 'resume_build/create_resume.html', {
+                        'resume_form': resume_form,
+                        'education_form': EducationForm(),
+                        'experience_form': ExperienceForm(),
+                        'educations': educations,
+                        'experiences': experiences,
+                        'error': f"AI Error: {str(e)}"
+                    })
 
+        # 教育经历保存
         elif 'add_education' in request.POST:
-            # Add education data
-            education = {
-                'start_year': request.POST.get('start_year'),
-                'start_month': request.POST.get('start_month'),
-                'end_year': request.POST.get('end_year'),
-                'end_month': request.POST.get('end_month'),
-                'school_name': request.POST.get('school_name'),
-                'major': request.POST.get('major'),
-                'gpa': request.POST.get('gpa'),
-                'scholarships': request.POST.get('scholarships')
-            }
-            resume_data['educations'].append(education)
-            request.session['resume_data'] = resume_data
-            return redirect('create_resume')
+            education_form = EducationForm(request.POST)
+            if education_form.is_valid():
+                education = education_form.save(commit=False)
+                education.resume = resume  # 将教育经历与当前简历绑定
+                education.save()
+                return redirect('create_resume')
 
+        # 工作经历保存
         elif 'add_experience' in request.POST:
-            # Add experience data
-            experience = {
-                'start_year': request.POST.get('start_year'),
-                'start_month': request.POST.get('start_month'),
-                'end_year': request.POST.get('end_year'),
-                'end_month': request.POST.get('end_month'),
-                'institution_name': request.POST.get('institution_name'),
-                'position': request.POST.get('position'),
-                'department_and_role': request.POST.get('department_and_role'),
-                'bullet_points': request.POST.getlist('bullet_points[]')
-            }
-            resume_data['experiences'].append(experience)
-            request.session['resume_data'] = resume_data
-            return redirect('create_resume')
+            experience_form = ExperienceForm(request.POST)
+            if experience_form.is_valid():
+                experience = experience_form.save(commit=False)
+                experience.resume = resume  # 将工作经历与当前简历绑定
+                experience.save()
+                return redirect('create_resume')
+
+    # 查询当前 Resume 的教育经历和工作经历
+    educations = Education.objects.filter(resume=resume)
+    experiences = Experience.objects.filter(resume=resume)
 
     return render(request, 'resume_build/create_resume.html', {
-        'resume_data': resume_data,
+        'resume_form': ResumeForm(instance=resume),
+        'education_form': EducationForm(),
+        'experience_form': ExperienceForm(),
+        'educations': educations,
+        'experiences': experiences,
         'ai_summary': request.session.get('ai_summary', ''),
     })
 
@@ -235,51 +236,29 @@ def generate_ai_summary(resume, experiences, educations):
 
 
 def index(request):
+    
     return render(request, 'resume_build/index.html')
 
-from django.shortcuts import render
-from django.http import JsonResponse
-import openai
 
-def generate_ai_response(request):
-    if request.method == 'POST':
-        user_input = request.POST.get('user_input', '')
+from .models import Resume
 
-        if not user_input:
-            return render(request, 'resume_build/create_resume.html', {
-                'error': 'Please provide input for AI.',
-            })
-
-        # Call OpenAI API (make sure your API key is configured correctly)
-        openai.api_key = "your_openai_api_key_here"
-        try:
-            response = openai.Completion.create(
-                engine="text-davinci-003",
-                prompt=user_input,
-                max_tokens=150
-            )
-            ai_output = response.choices[0].text.strip()
-            return render(request, 'resume_build/summary.html', {'ai_output': ai_output})
-        except Exception as e:
-            return render(request, 'resume_build/create_resume.html', {
-                'error': f"AI interaction failed: {e}",
-            })
-
-
-from django.shortcuts import render
-
+@login_required
 def summary(request):
-    # Example: Retrieve data you want to display in the summary page
-    resume_data = {
-        'name': request.session.get('name', ''),
-        'country': request.session.get('country', ''),
-        'city': request.session.get('city', ''),
-        'phone': request.session.get('phone', ''),
-        'email': request.session.get('email', ''),
-        'skills': request.session.get('skills', ''),
-        'educations': request.session.get('educations', []),
-        'experiences': request.session.get('experiences', [])
-    }
+    try:
+        resume = Resume.objects.get(user=request.user)
+        educations = resume.education_set.all()
+        experiences = resume.experience_set.all()
+    except Resume.DoesNotExist:
+        resume = None
+        educations = []
+        experiences = []
 
-    return render(request, 'resume_build/summary.html', {'resume_data': resume_data})
+    return render(request, 'resume_build/summary.html', {
+        'resume': resume,
+        'educations': educations,
+        'experiences': experiences,
+    })
+
+
+
 
