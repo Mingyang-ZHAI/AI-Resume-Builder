@@ -93,7 +93,6 @@ from .forms import ResumeForm, ExperienceForm, EducationForm
 from .models import Resume, Experience, Education
 import openai
 
-openai.api_key = "your_openai_api_key_here"
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 import openai
@@ -173,6 +172,8 @@ def create_resume(request):
             if education_form.is_valid():
                 education = education_form.save(commit=False)
                 education.resume = resume  # 将教育经历与当前简历绑定
+                # 从 POST 数据中获取 bullet_points 列表
+                experience.bullet_points = request.POST.getlist('bullet_points[]')
                 education.save()
                 return redirect('create_resume')
 
