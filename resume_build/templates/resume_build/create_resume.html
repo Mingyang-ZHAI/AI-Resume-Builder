@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Resume</title>
+    <style>
+        /* Navigation Bar Styles */
+        nav {
+            width: 100%;
+            background-color: #007bff;
+            padding: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        nav ul li {
+            margin: 0 20px;
+        }
+
+        nav ul li a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        nav ul li a:hover {
+            text-decoration: underline;
+        }
+
+        .form-container {
+            background-color: #f5f5f5;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h1, h2 {
+            color: #333;
+            font-weight: 600;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            margin: 10px 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-remove {
+            background-color: #ff4d4d;
+            color: white;
+        }
+
+        .btn-remove:hover {
+            background-color: #cc0000;
+        }
+
+        .back-home a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .back-home a:hover {
+            text-decoration: underline;
+        }
+
+        .skill-tag {
+            background-color: #969a9e;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            margin: 5px;
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .skill-tag .remove-skill {
+            margin-left: 8px;
+            cursor: pointer;
+            color: #302c2c;
+        }
+
+        /* Simple styling for the message box */
+        .message-box {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #28a745;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        /* Message Box for error */
+        .message-box.error {
+            background-color: #e76565; /* Red for error */
+        }
+
+        /* Message Box for success */
+        .message-box.success {
+            background-color: #85ec9b; /* Green for success */
+        }
+
+    </style>
+</head>
+<body>
+<!-- Navigation Bar -->
+<nav>
+    <ul>
+        <li><a href="{% url 'index' %}">Home</a></li>
+        <li><a href="{% url 'create_resume' %}">Edit Resume</a></li>
+        <li><a href="{% url 'job_description' %}">Job Description</a></li>
+        <!-- Add more links as needed -->
+    </ul>
+</nav>
+
+<h1>Create a New Resume</h1>
+
+<!-- Success/Error message box -->
+<div id="message-box" class="message-box">
+    <p id="message-text"></p>
+</div>
+
+
+<p>Fill out the form below to create a new resume:</p>
+
+<form id="resume-form" class="form-container">
+    {% csrf_token %}
+    <!-- Basic Information -->
+    <label for="name-input">Name:</label>
+    <input type="text" id="name-input" name="name" value="{{ resume_data.name }}" required><br><br>
+
+    <label for="country-input">Country:</label>
+    <select id="country-input" name="country" required>
+        <option value="">Select a country</option>
+        <option value="Canada" {% if resume_data.country == 'Canada' %}selected{% endif %}>Canada</option>
+        <option value="China" {% if resume_data.country == 'China' %}selected{% endif %}>China</option>
+        <option value="United States" {% if resume_data.country == 'United States' %}selected{% endif %}>United States
+        </option>
+        <option value="India" {% if resume_data.country == 'India' %}selected{% endif %}>India</option>
+        <option value="Mexico" {% if resume_data.country == 'Mexico' %}selected{% endif %}>Mexico</option>
+    </select><br>
+
+    <label for="city-input">City:</label>
+    <select id="city-input" name="city" required>
+        <option value="">Select a city</option>
+    </select><br>
+
+    <label for="phone-input">Phone:</label>
+    <input type="text" id="phone-input" name="phone" value="{{ resume_data.phone }}" required><br><br>
+
+    <label for="email-input">Email:</label>
+    <input type="email" id="email-input" name="email" value="{{ resume_data.email }}" required><br><br>
+
+    <label for="skills-input">Skills:</label>
+    <div id="skills-container" style="border: 1px solid #ccc; padding: 10px; border-radius: 8px;">
+        <input type="text" id="skills-input" placeholder="Add a skill">
+        <button type="button" id="add-skill">Add Skill</button>
+        <ul id="skills-list" style="list-style: none; padding: 0; display: flex; flex-wrap: wrap;">
+            {% for skill in resume_data.skills %}
+                <li class="skill-tag">
+                    {{ skill }}
+                    <span class="remove-skill">x</span>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <hr>
+
+    <!-- Education Section -->
+    <h2>Education</h2>
+    <div id="education-section">
+        <!-- Dynamic education entries will go here -->
+    </div>
+    <button type="button" id="add-education" class="btn btn-secondary">Add Education</button>
+
+    <hr>
+
+    <!-- Experience Section -->
+    <h2>Experience</h2>
+    <div id="experience-section">
+        <!-- Dynamic experience entries will go here -->
+    </div>
+    <button type="button" id="add-experience" class="btn btn-secondary">Add Experience</button>
+
+    <hr>
+
+    <!-- Save All Entries Button -->
+    <button type="button" id="save-resume" class="btn btn-primary">Save All Entries</button>
+</form>
+
+<script>
+    const countryCityMap = {
+        'Canada': ['Toronto, ON', 'Vancouver, BC', 'Montreal, QC', 'Ottawa, ON'],
+        'China': ['Beijing', 'Shanghai', 'Tianjin', 'Shenzhen'],
+        'United States': ['New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX'],
+        'India': ['Delhi', 'Mumbai', 'Bangalore', 'Hyderabad'],
+        'Mexico': ['Mexico City', 'Guadalajara', 'Monterrey']
+    };
+
+    // Populate cities based on selected country
+    document.getElementById('country-input').addEventListener('change', function () {
+        const country = this.value;
+        const citySelect = document.getElementById('city-input');
+
+        citySelect.innerHTML = '<option value="">Select a city</option>';
+
+        if (countryCityMap[country]) {
+            countryCityMap[country].forEach(function (city) {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', (event) => {
+        // 触发国家和城市下拉框联动
+        if (document.getElementById('country-input').value) {
+            document.getElementById('country-input').dispatchEvent(new Event('change'));
+        }
+
+        // 设置选中的城市
+        const selectedCity = '{{ resume_data.city }}';
+        const citySelect = document.getElementById('city-input');
+        const cityOptions = citySelect.querySelectorAll('option');
+        cityOptions.forEach(option => {
+            if (option.value === selectedCity) {
+                option.selected = true;
+            }
+        });
+        // 动态加载教育数据
+        const educations = JSON.parse('{{ educations|safe|escapejs }}');
+        const educationSection = document.getElementById('education-section');
+        educations.forEach(edu => {
+            const educationTemplate = `
+            <div class="education-entry">
+                <label>Start Year:</label><input type="number" name="education_start_year" value="${edu.start_year || ''}" required>
+                <label>Start Month:</label><input type="number" name="education_start_month" value="${edu.start_month || ''}" min="1" max="12" required>
+                <label>End Year:</label><input type="number" name="education_end_year" value="${edu.end_year || ''}" required>
+                <label>End Month:</label><input type="number" name="education_end_month" value="${edu.end_month || ''}" min="1" max="12" required>
+                <label>School Name:</label><input type="text" name="education_school_name" value="${edu.school_name || ''}" required>
+                <label>Major:</label><input type="text" name="education_major" value="${edu.major || ''}" required>
+                <label>GPA:</label><input type="number" name="education_gpa" step="0.01" value="${edu.gpa || ''}">
+                <label>Scholarships:</label><textarea name="education_scholarships">${edu.scholarships || ''}</textarea>
+                <button type="button" class="btn-remove">Remove</button>
+                <hr>
+            </div>`;
+            educationSection.insertAdjacentHTML('beforeend', educationTemplate);
+        });
+
+        // 动态加载经验数据
+        const experiences = JSON.parse('{{ experiences|safe|escapejs }}');
+        const experienceSection = document.getElementById('experience-section');
+        experiences.forEach(exp => {
+            const experienceTemplate = `
+            <div class="experience-entry">
+                <label>Start Year:</label><input type="number" name="experience_start_year" value="${exp.start_year || ''}" required>
+                <label>Start Month:</label><input type="number" name="experience_start_month" value="${exp.start_month || ''}" min="1" max="12" required>
+                <label>End Year:</label><input type="number" name="experience_end_year" value="${exp.end_year || ''}" required>
+                <label>End Month:</label><input type="number" name="experience_end_month" value="${exp.end_month || ''}" min="1" max="12" required>
+                <label>Institution Name:</label><input type="text" name="experience_institution_name" value="${exp.institution_name || ''}" required>
+                <label>Position:</label><input type="text" name="experience_position" value="${exp.position || ''}" required>
+                <label>Department:</label><textarea name="experience_department_and_role">${exp.department_and_role || ''}</textarea>
+                <label>Content:</label><textarea name="content">${exp.content || ''}</textarea>
+                <h4>Bullet Points</h4>
+                <div class="bullet-points-section">
+                    <input type="text" placeholder="Add bullet point" class="bullet-point-input">
+                    <button type="button" class="btn-add-bullet-point">Add Bullet Point</button>
+                    <ul class="bullet-points-list">
+                        ${exp.bullet_points.map(point => `<li>${point}</li>`).join('')}
+                    </ul>
+                </div>
+                <button type="button" class="btn-remove">Remove</button>
+                <hr>
+            </div>`;
+            experienceSection.insertAdjacentHTML('beforeend', experienceTemplate);
+        });
+    });
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const skillsInput = document.getElementById('skills-input');
+        const skillsList = document.getElementById('skills-list');
+        const addSkillButton = document.getElementById('add-skill');
+
+        // 添加技能标签
+        addSkillButton.addEventListener('click', function () {
+            const skill = skillsInput.value.trim();
+            if (skill) {
+                // 创建技能标签元素
+                const skillTag = document.createElement('li');
+                skillTag.classList.add('skill-tag');
+                skillTag.textContent = skill;
+
+                // 添加删除按钮
+                const removeButton = document.createElement('span');
+                removeButton.classList.add('remove-skill');
+                removeButton.textContent = 'x';
+                removeButton.addEventListener('click', function () {
+                    skillTag.remove(); // 删除技能标签
+                });
+
+                skillTag.appendChild(removeButton);
+                skillsList.appendChild(skillTag);
+
+                skillsInput.value = ''; // 清空输入框
+            } else {
+                alert('Please enter a valid skill.');
+            }
+        });
+    });
+
+
+    // Add Education dynamically
+    document.getElementById('add-education').addEventListener('click', function () {
+        const educationSection = document.getElementById('education-section');
+        const educationTemplate = `
+            <div class="education-entry">
+                <label>Start Year:</label><input type="number" name="education_start_year" required>
+                <label>Start Month:</label><input type="number" name="education_start_month" min="1" max="12" required>
+                <label>End Year:</label><input type="number" name="education_end_year" required>
+                <label>End Month:</label><input type="number" name="education_end_month" min="1" max="12" required>
+                <label>School Name:</label><input type="text" name="education_school_name" required>
+                <label>Major:</label><input type="text" name="education_major" required>
+                <label>GPA:</label><input type="number" name="education_gpa" step="0.01">
+                <label>Scholarships:</label><textarea name="education_scholarships"></textarea>
+                <button type="button" class="btn-remove">Remove</button>
+                <hr>
+            </div>`;
+        educationSection.insertAdjacentHTML('beforeend', educationTemplate);
+    });
+
+    // Add Experience dynamically
+    document.getElementById('add-experience').addEventListener('click', function () {
+        const experienceSection = document.getElementById('experience-section');
+        const experienceTemplate = `
+        <div class="experience-entry">
+            <label>Start Year:</label><input type="number" name="experience_start_year" required>
+            <label>Start Month:</label><input type="number" name="experience_start_month" min="1" max="12" required>
+            <label>End Year:</label><input type="number" name="experience_end_year" required>
+            <label>End Month:</label><input type="number" name="experience_end_month" min="1" max="12" required>
+            <label>Institution Name:</label><input type="text" name="experience_institution_name" required>
+            <label>Position:</label><input type="text" name="experience_position" required>
+            <label>Department:</label><textarea name="experience_department_and_role"></textarea>
+            <label>Content:</label><textarea name="content"></textarea>
+            <h4>Bullet Points</h4>
+            <div class="bullet-points-section">
+                <input type="text" placeholder="Add bullet point" class="bullet-point-input">
+                <button type="button" class="btn-add-bullet-point">Add Bullet Point</button>
+                <ul class="bullet-points-list"></ul>
+            </div>
+
+            <button type="button" class="btn-remove">Remove</button>
+            <hr>
+        </div>`;
+        experienceSection.insertAdjacentHTML('beforeend', experienceTemplate);
+    });
+
+    // Add bullet points for experience
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList.contains('btn-add-bullet-point')) {
+            // Closest '.experience-entry' ensures that we are working within the right section
+            const experienceEntry = e.target.closest('.experience-entry');
+
+            if (experienceEntry) {
+                const bulletInput = experienceEntry.querySelector('.bullet-point-input');
+                const bulletList = experienceEntry.querySelector('.bullet-points-list');
+
+                // Ensure input value is not empty
+                if (bulletInput && bulletInput.value.trim()) {
+                    const li = document.createElement('li'); // Create a new list item
+                    li.textContent = bulletInput.value.trim(); // Assign input value
+                    bulletList.appendChild(li); // Append to bullet points list
+                    bulletInput.value = ''; // Clear input field
+                } else {
+                    alert('Please enter a valid bullet point.');
+                }
+            }
+        }
+    });
+
+
+    // Remove dynamically added sections
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList.contains('btn-remove')) {
+            e.target.closest('.experience-entry')?.remove();
+            e.target.closest('.education-entry')?.remove();
+        }
+    });
+
+    // Save form data
+    document.getElementById('save-resume').addEventListener('click', function () {
+        const form = document.getElementById('resume-form');
+        const skillsList = document.querySelectorAll('#skills-list .skill-tag');
+        const skills = Array.from(skillsList).map(skill => skill.textContent.replace('x', '').trim());
+
+        let isValid = true;
+        const data = {
+            skills: skills,
+            basicInfo: {},  // Store basic information
+            education: [],  // Store education entries
+            experience: []  // Store experience entries
+        };
+
+        // Validate basic information
+        const basicInputs = form.querySelectorAll('input, select, textarea:not(#skill-input)');
+        basicInputs.forEach(input => {
+            if (!input.value.trim() && input.required) {
+                isValid = false;
+                input.style.border = '2px solid red'; // Highlight empty fields
+            } else {
+                input.style.border = ''; // Remove highlight
+                data.basicInfo[input.name] = input.value.trim(); // Store basic info
+            }
+        });
+
+        // Extract education entries
+        const educationEntries = form.querySelectorAll('.education-entry');
+        educationEntries.forEach(entry => {
+            const eduData = {};
+            entry.querySelectorAll('input, textarea').forEach(input => {
+                if (!input.value.trim() && input.required) {
+                    isValid = false;
+                    input.style.border = '2px solid red'; // Highlight empty fields
+                } else {
+                    input.style.border = '';
+                    eduData[input.name] = input.value.trim();
+                }
+            });
+            data.education.push(eduData);
+        });
+
+        // Extract experience entries and Bullet Points
+        const experienceEntries = form.querySelectorAll('.experience-entry');
+        experienceEntries.forEach(entry => {
+            const expData = {};
+            entry.querySelectorAll('input, textarea').forEach(input => {
+                if (!input.value.trim() && input.required && input.type !== 'button') {
+                    isValid = false;
+                    input.style.border = '2px solid red'; // Highlight empty fields
+                } else {
+                    input.style.border = '';
+                    expData[input.name] = input.value.trim();
+                }
+            });
+
+            // Collect Bullet Points (always send this data, even if it's empty)
+            const bulletPoints = [];
+            const bulletItems = entry.querySelectorAll('.bullet-points-list li');
+            bulletItems.forEach(item => bulletPoints.push(item.textContent.trim()));
+
+            // Ensure bullet_points is always included, even if empty
+            expData.bullet_points = bulletPoints.length > 0 ? bulletPoints : [];
+
+            data.experience.push(expData);
+        });
+
+        // If validation fails, stop saving
+        if (!isValid) {
+            showMessage('Please fill out all required fields correctly.', data.message);
+            return;
+        }
+
+        // Submit form data to backend
+        function showMessage(type, message, redirectUrl = null) {
+            var messageBox = document.getElementById('message-box');
+            var messageText = document.getElementById('message-text');
+
+            messageText.innerText = message;
+
+            // Set the correct class based on the message type (success or error)
+            messageBox.className = 'message-box ' + type;
+
+            // Show the message box
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                // Fade in the message after a slight delay
+                messageBox.style.opacity = 1;
+            }, 10);  // Slight delay to ensure the message box appears
+
+            setTimeout(() => {
+                // Fade out the message and hide the box after 3 seconds
+                messageBox.style.opacity = 0;
+                setTimeout(() => {
+                    messageBox.style.display = 'none';
+                }, 500);  // Wait for the opacity transition to finish
+
+                // If a redirect URL is provided, redirect after 3 seconds
+                if (redirectUrl) {
+                    window.location.href = redirectUrl;
+                }
+            }, 3000);  // Hide after 3 seconds
+        }
+
+        fetch('/save/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Show success message and redirect to /job_description/ after 3 seconds
+                    showMessage('success', data.message, '/job_description/');
+                } else {
+                    // Show error message without redirection
+                    showMessage('error', data.message);
+                }
+            })
+            .catch(error => {
+                // Show error message if something goes wrong
+                showMessage('error', "An unexpected error occurred. Please try again later.");
+            });
+
+
+    });
+</script>
+</body>
+</html>

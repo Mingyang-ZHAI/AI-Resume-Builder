@@ -1,0 +1,45 @@
+<h1>Resume Summary</h1>
+
+<h2>Basic Information</h2>
+<ul>
+    <li>Name: {{ resume.name }}</li>
+    <li>Country: {{ resume.country }}</li>
+    <li>City: {{ resume.city }}</li>
+    <li>Phone: {{ resume.phone }}</li>
+    <li>Email: {{ resume.email }}</li>
+    <li>Skills: {{ resume.skills }}</li>
+</ul>
+
+<h2>Education</h2>
+<ul>
+    {% for edu in educations %}
+        <li>
+            {{ edu.start_year }}-{{ edu.start_month }} to {{ edu.end_year }}-{{ edu.end_month }}:
+            {{ edu.school_name }} ({{ edu.major }}, GPA: {{ edu.gpa|default:"N/A" }})
+            {% if edu.scholarships %}
+                <ul>
+                    <li>Scholarships: {{ edu.scholarships }}</li>
+                </ul>
+            {% endif %}
+        </li>
+    {% endfor %}
+</ul>
+
+
+<h2>Experience</h2>
+<ul>
+    {% for exp in experiences %}
+        <li>
+            {{ exp.start_year }}/{{ exp.start_month }} - {{ exp.end_year }}/{{ exp.end_month }}:
+            {{ exp.institution_name }} - {{ exp.position }}
+            <ul>
+                <li>{{ exp.department_and_role }}</li>
+                <ul>
+                    {% for point in exp.bullet_points.splitlines %}
+                        <li>{{ point }}</li>
+                    {% endfor %}
+                </ul>
+            </ul>
+        </li>
+    {% endfor %}
+</ul>
