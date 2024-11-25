@@ -108,31 +108,48 @@
 
         /* Simple styling for the message box */
         .message-box {
-            display: none;
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: #28a745;
-            color: white;
-            padding: 15px;
-            border-radius: 5px;
+            padding: 15px 20px;
+            border-radius: 8px;
             font-size: 16px;
-            font-weight: 500;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-            z-index: 9999;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
+            font-weight: bold;
+            color: white;
+            z-index: 1000;
+            opacity: 1;
+            animation: fadeOut 3s forwards;
         }
 
         /* Message Box for error */
         .message-box.error {
             background-color: #e76565; /* Red for error */
+            color: white; /* 白色字体 */
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            margin-bottom: 10px;
         }
 
         /* Message Box for success */
         .message-box.success {
+            color: white; /* 白色字体 */
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            margin-bottom: 10px;
             background-color: #85ec9b; /* Green for success */
+        }
+
+        @keyframes fadeOut {
+            0% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                visibility: hidden;
+            }
         }
 
     </style>

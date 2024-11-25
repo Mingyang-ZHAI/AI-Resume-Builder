@@ -1,16 +1,17 @@
 import json
+import time
 
 import openai
+import pdfkit
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password, check_password
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
+from django.template.loader import render_to_string
+from openai import OpenAI
 
 from resume_build.forms import LoginForm, JobForm
-from resume_build.models import User, Education, Experience
-
-# 配置 OpenAI API Key
-openai.api_key = "your_openai_api_key_here"
+from resume_build.models import User, Education, Experience, Job
 
 
 def login_view(request):
@@ -148,15 +149,102 @@ def save_resume(request):
 
 
 def job_description(request):
+    user = User.objects.get(id=request.session['info']['id'])
     if request.method == 'POST':
         form = JobForm(request.POST)
         if form.is_valid():
-            # Handle the valid form data here (save to database, send email, etc.)
             job_title = form.cleaned_data['job_title']
             description = form.cleaned_data['description']
-            # For now, let's just display a success message
-            messages.success(request, 'Job posted successfully!')
-            return redirect('job_description')  # redirect back to the form (or somewhere else)
+            if Job.objects.filter(user_id=user.id).exists():
+                Job.objects.filter(user_id=request.session['info']['id']).first().delete()
+            job_data = Job(user_id=user, job_title=job_title, description=description)
+            job_data.save()
+            return redirect('show_resume')
     else:
         form = JobForm()
     return render(request, 'resume_build/job_description.html', {'form': form})
+
+
+def show_resume(request):
+    user = User.objects.get(id=request.session['info']['id'])
+    experiences = Experience.objects.filter(user_id=user)
+
+    response_data = []
+
+    for exp in experiences:
+        if exp.content:
+            exp.content = connect_ai(exp.content, user.id)
+            response_data.append(exp.content)
+    Job.objects.filter(user_id=user.id).update(response=response_data)
+
+    context = {
+        'name': user.name,
+        'username': user.username,
+        'country': user.country,
+        'city': user.city,
+        'phone': user.phone,
+        'email': user.email,
+        'skills': user.skills,
+        'experiences': experiences,
+        'education_list': Education.objects.filter(user_id=user),
+    }
+    return render(request, 'resume.html', context)
+
+
+def download_pdf(request):
+    user = User.objects.get(id=request.session['info']['id'])
+
+    job_response = Job.objects.filter(user_id=user.id).first()
+
+    experiences = Experience.objects.filter(user_id=user)
+    i = 0
+    for exp in experiences:
+        exp.content = job_response.response[i]
+        i += 1
+    context = {
+        'name': user.name,
+        'username': user.username,
+        'country': user.country,
+        'city': user.city,
+        'phone': user.phone,
+        'email': user.email,
+        'skills': user.skills,
+        'experiences': experiences,
+        'education_list': Education.objects.filter(user_id=user),
+    }
+    html_content = render_to_string('resume_pdf.html', context)
+    path_wkhtmltopdf = r"D:\wkhtmltopdf\bin\wkhtmltopdf.exe"  # 替换为实际路径
+    config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
+    pdf = pdfkit.from_string(html_content, False, configuration=config)
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{user.id}.pdf"'
+    return response
+
+
+def connect_ai(text, user_id):
+    job_data = Job.objects.filter(user_id=user_id).first()
+    try:
+        client = OpenAI(
+            base_url="https://api.studio.nebius.ai/v1/",
+            api_key="eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDExMTA0MjE4ODY5OTUzMDkwNTU2MCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg5MDA5NTU4OSwidXVpZCI6ImRlZjYwOWQ0LTNiZGYtNGVjNS04MmJiLTEyMDAxMWIxNDc3ZSIsIm5hbWUiOiJ0ZXN0IiwiZXhwaXJlc19hdCI6IjIwMjktMTEtMjNUMDI6MzM6MDkrMDAwMCJ9.nfdZwP9DKk5MNiRlq8ZJ27dVz3S7lars0sGVdJceb90",
+        )
+        completion = client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3.1-70B-Instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"I would like to post {job_data.job_title}, the post requirements are as follows {job_data.description}, please help me to modify the Experience content field, please use it to post this post, about 50 words, and directly tell me the answer. Do not divide!: {text}"
+                }
+            ],
+            temperature=0.6
+        )
+        response = json.loads(completion.to_json())['choices'][0]['message']['content']
+        print('before')
+        print(text)
+        print('-----')
+        print('end')
+        print(response)
+        return response.split('\n')[-1]
+    except Exception as e:
+        print(e)
+        return text

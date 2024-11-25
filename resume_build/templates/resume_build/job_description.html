@@ -88,6 +88,7 @@
         }
 
         form button {
+            position: relative;
             padding: 15px;
             font-size: 16px;
             font-weight: bold;
@@ -100,47 +101,33 @@
             transition: all 0.3s ease;
         }
 
-        form button:hover {
-            background-color: #0056b3;
+        form button:disabled {
+            cursor: not-allowed;
+            background-color: #6c757d;
         }
 
-        .message-box {
-            position: fixed;
-            top: 20px;
+        form button.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            padding: 15px 20px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            color: white;
-            z-index: 1000;
-            opacity: 1;
-            animation: fadeOut 5s forwards;
+            width: 20px;
+            height: 20px;
+            border: 3px solid white;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            transform: translate(-50%, -50%);
         }
 
-        .success-message {
-            background-color: #85ec9b;
-            color: white;
-            text-align: center;
-        }
-
-        .error-message {
-            background-color: #e76565;
-            color: white;
-            text-align: center;
-        }
-
-        @keyframes fadeOut {
+        @keyframes spin {
             0% {
-                opacity: 1;
+                transform: translate(-50%, -50%) rotate(0deg);
             }
             100% {
-                opacity: 0;
-                visibility: hidden;
+                transform: translate(-50%, -50%) rotate(360deg);
             }
         }
-
     </style>
 </head>
 <body>
@@ -156,22 +143,21 @@
 
 <div class="container">
     <h2>Create Job</h2>
-    {% if messages %}
-        <div>
-            {% for message in messages %}
-                <div class="message-box {{ message.tags }} {{ message.tags|add:'-message' }}">{{ message }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
-    <form method="post">
+    <form method="post" id="jobForm">
         {% csrf_token %}
         <input type="text" name="job_title" placeholder="Job Title" required>
         <textarea name="description" placeholder="Job Description" rows="4" required></textarea>
-        <button type="submit">Submit Job</button>
+        <button type="submit" id="submitButton">Submit Job</button>
     </form>
 </div>
 
 <script>
+    document.getElementById('jobForm').addEventListener('submit', function (e) {
+        const submitButton = document.getElementById('submitButton');
+        submitButton.classList.add('loading');
+        submitButton.disabled = true; // Disable the button to prevent multiple submissions
+    });
+
     setTimeout(() => {
         const messages = document.querySelectorAll('.message-box');
         messages.forEach(msg => msg.remove());

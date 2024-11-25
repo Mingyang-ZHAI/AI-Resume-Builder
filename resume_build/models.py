@@ -42,3 +42,10 @@ class Education(models.Model):
 
     def __str__(self):
         return f"{self.school_name} ({self.start_year}-{self.start_month} to {self.end_year}-{self.end_month})"
+
+
+class Job(models.Model):
+    user_id = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    job_title = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    response = models.JSONField(blank=True, null=True)
