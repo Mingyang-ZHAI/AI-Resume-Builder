@@ -13,6 +13,9 @@ from openai import OpenAI
 from resume_build.forms import LoginForm, JobForm
 from resume_build.models import User, Education, Experience, Job
 
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 
 def login_view(request):
     if request.method == 'POST':
@@ -248,3 +251,104 @@ def connect_ai(text, user_id):
     except Exception as e:
         print(e)
         return text
+
+
+def calculate_category_match(category_keywords, content):
+    """
+    Calculate match percentage for a specific category of keywords.
+    Args:
+        category_keywords (list): List of keywords for the category.
+        content (str): The content to match the keywords against.
+
+    Returns:
+        float: Match percentage (0-100).
+    """
+    if not content.strip():  # Ensure content is not empty
+        return 0.0
+
+    # Preprocess content and keywords
+    content = content.lower()
+    category_keywords = [keyword.lower() for keyword in category_keywords]
+
+    # Vectorize content and keywords
+    vectorizer = CountVectorizer(vocabulary=category_keywords)
+    content_vector = vectorizer.fit_transform([content])
+    category_vector = vectorizer.transform([' '.join(category_keywords)])
+
+    # Compute cosine similarity
+    similarity = cosine_similarity(content_vector, category_vector)[0][0]
+    return round(similarity * 100, 2)
+
+
+def match_score_page(request):
+    """
+    View to calculate match score breakdown and generate Job Match Report.
+    """
+    user = User.objects.get(id=request.session['info']['id'])
+
+    # Fetch job description and resume content
+    job = Job.objects.filter(user_id=user.id).first()
+    if not job:
+        return render(request, 'match_score.html', {
+            'error': 'No job description found for this user.',
+        })
+
+    resume_content = Experience.objects.filter(user_id=user.id).values_list('content', flat=True)
+    resume_content_combined = ' '.join(resume_content)
+
+    # Debug: Print fetched data
+    print("Resume Content:", resume_content_combined)
+    print("Job Description:", job.description)
+
+    # Predefined categories
+    hard_skills = ["Python", "SQL", "JavaScript", "Java", "AWS"]
+    soft_skills = ["Communication", "Leadership", "Time Management", "Adaptability"]
+    other_keywords = ["Technology", "Innovation", "Challenges", "Collaboration"]
+
+    # Calculate match scores
+    hard_skills_score = calculate_category_match(hard_skills, resume_content_combined)
+    soft_skills_score = calculate_category_match(soft_skills, resume_content_combined)
+    keywords_score = calculate_category_match(other_keywords, resume_content_combined)
+
+    # Degree and Title Match
+    degree_score = 100 if "master's" in resume_content_combined.lower() else 0
+    title_score = 100 if job.job_title.lower() in resume_content_combined.lower() else 0
+
+    # Overall Score
+    overall_score = round(
+        (hard_skills_score * 0.4) +
+        (soft_skills_score * 0.2) +
+        (keywords_score * 0.2) +
+        (degree_score * 0.1) +
+        (title_score * 0.1),
+        2
+    )
+
+    # Generate reports
+    missing_hard_skills = [skill for skill in hard_skills if skill.lower() not in resume_content_combined.lower()]
+    missing_soft_skills = [skill for skill in soft_skills if skill.lower() not in resume_content_combined.lower()]
+    missing_keywords = [keyword for keyword in other_keywords if keyword.lower() not in resume_content_combined.lower()]
+
+    hard_skills_report = f"You are missing {len(missing_hard_skills)} important hard skills: {', '.join(missing_hard_skills)}."
+    soft_skills_report = f"You are missing {len(missing_soft_skills)} soft skills: {', '.join(missing_soft_skills)}."
+    keywords_report = f"You are missing {len(missing_keywords)} other keywords: {', '.join(missing_keywords)}."
+    title_report = "Great Work! The job title matches your resume perfectly." if title_score == 100 else \
+        f"The job title '{job.job_title}' does not match your resume."
+    degree_report = "Congratulations! Your degree meets the job requirements." if degree_score == 100 else \
+        f"Your degree does not match the job's requirements of a Master's degree."
+
+    return render(request, 'match_score.html', {
+        'overall_score': overall_score,
+        'hard_skills_score': hard_skills_score,
+        'soft_skills_score': soft_skills_score,
+        'keywords_score': keywords_score,
+        'degree_score': degree_score,
+        'title_score': title_score,
+        'hard_skills_report': hard_skills_report,
+        'soft_skills_report': soft_skills_report,
+        'keywords_report': keywords_report,
+        'title_report': title_report,
+        'degree_report': degree_report,
+        'resume_content': resume_content_combined,
+        'job_description': job.description,
+    })

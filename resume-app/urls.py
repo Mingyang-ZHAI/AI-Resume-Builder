@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 
 from resume_build.views import login_view, register_view, logout_view, index, create_resume, save_resume, \
-    job_description, download_pdf, show_resume
+    job_description, download_pdf, show_resume, match_score_page
 
 urlpatterns = [
     path('', index, name='index'),
@@ -32,4 +32,5 @@ urlpatterns = [
     path('job_description/', job_description, name='job_description'),
     path('show_resume/', show_resume, name='show_resume'),
     path('download_pdf/', download_pdf, name='download_pdf'),
+    path('match_score_page/', match_score_page, name='match_score_page'),
 ]
