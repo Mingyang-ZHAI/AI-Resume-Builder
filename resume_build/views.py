@@ -1,22 +1,22 @@
 import json
 import time
+import re
 
 import openai
 import pdfkit
+import markdown
+from sklearn.metrics.pairwise import cosine_similarity
+from bs4 import BeautifulSoup
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from openai import OpenAI
-import markdown
 
 from resume_build.forms import LoginForm, JobForm
 from resume_build.models import User, Education, Experience, Job
-
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from bs4 import BeautifulSoup
+from .utils.match_score import calculate_overall_score, calculate_skill_scores, calculate_title_degree_scores, generate_title_degree_report
 
 
 def login_view(request):
@@ -347,239 +347,22 @@ def rewrite_resume_view(request):
         return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
-def calculate_category_match(category_keywords, content):
+def fetch_resume_content(request, user):
     """
-    Calculate match percentage for a specific category of keywords.
-    Args:
-        category_keywords (list): List of keywords for the category.
-        content (str): The content to match the keywords against.
-    Returns:
-        float: Match percentage (0-100).
+    Fetch raw and processed resume content.
     """
-    if not content.strip():  # Ensure content is not empty
-        return 0.0
-    # Preprocess content and keywords
-    content = content.lower()
-    category_keywords = [keyword.lower() for keyword in category_keywords]
-    # Vectorize content and keywords
-    vectorizer = CountVectorizer(vocabulary=category_keywords)
-    content_vector = vectorizer.fit_transform([content])
-    category_vector = vectorizer.transform([' '.join(category_keywords)])
-    # Compute cosine similarity
-    similarity = cosine_similarity(content_vector, category_vector)[0][0]
-    return round(similarity * 100, 2)
+    raw_resume_content = Experience.objects.filter(user_id=user.id).values_list('description', flat=True)
+    raw_resume_content_combined = ' '.join(raw_resume_content)
 
+    # Use rewritten resume from the session or fallback to raw content
+    processed_resume_content = request.session.get('rewritten_resume', raw_resume_content_combined)
 
-
-# def match_score_page(request):
-#     """
-#     View to calculate match score breakdown and generate Job Match Report.
-#     """
-#     user = User.objects.get(id=request.session['info']['id'])
-
-#     # Fetch job description and resume content
-#     job = Job.objects.filter(user_id=user).first()
-#     if not job:
-#         return render(request, 'match_score.html', {
-#             'error': 'No job description found for this user.',
-#         })
-
-#     experiences = Experience.objects.filter(user_id=user).values_list('description', flat=True)
-#     resume_content_combined = ' '.join(experiences)
-
-#     # Predefined categories for matching
-#     hard_skills = ["Python", "SQL", "JavaScript", "Java", "AWS"]
-#     soft_skills = ["Communication", "Leadership", "Time Management", "Adaptability"]
-#     other_keywords = ["Technology", "Innovation", "Challenges", "Collaboration"]
-
-#     # Calculate match scores for categories
-#     hard_skills_score = calculate_category_match(hard_skills, resume_content_combined)
-#     soft_skills_score = calculate_category_match(soft_skills, resume_content_combined)
-#     keywords_score = calculate_category_match(other_keywords, resume_content_combined)
-
-#     # Degree and Title Match
-#     education_content = Education.objects.filter(user_id=user).values_list('degree', flat=True)
-#     degree_match = any("master's" in degree.lower() for degree in education_content)
-#     degree_score = 100 if degree_match else 0
-
-#     title_score = 100 if job.job_title.lower() in resume_content_combined.lower() else 0
-
-#     # Calculate Overall Score
-#     overall_score = round(
-#         (hard_skills_score * 0.4) +
-#         (soft_skills_score * 0.2) +
-#         (keywords_score * 0.2) +
-#         (degree_score * 0.1) +
-#         (title_score * 0.1),
-#         2
-#     )
-
-#     # Generate Reports
-#     missing_hard_skills = [skill for skill in hard_skills if skill.lower() not in resume_content_combined.lower()]
-#     missing_soft_skills = [skill for skill in soft_skills if skill.lower() not in resume_content_combined.lower()]
-#     missing_keywords = [keyword for keyword in other_keywords if keyword.lower() not in resume_content_combined.lower()]
-
-#     hard_skills_report = f"You are missing {len(missing_hard_skills)} important hard skills: {', '.join(missing_hard_skills)}."
-#     soft_skills_report = f"You are missing {len(missing_soft_skills)} soft skills: {', '.join(missing_soft_skills)}."
-#     keywords_report = f"You are missing {len(missing_keywords)} other keywords: {', '.join(missing_keywords)}."
-#     title_report = "Great Work! The job title matches your resume perfectly." if title_score == 100 else \
-#         f"The job title '{job.job_title}' does not match your resume."
-#     degree_report = "Congratulations! Your degree meets the job requirements." if degree_score == 100 else \
-#         "Your degree does not match the job's requirements of a Master's degree."
-
-#     return render(request, 'match_score.html', {
-#         'overall_score': overall_score,
-#         'hard_skills_score': hard_skills_score,
-#         'soft_skills_score': soft_skills_score,
-#         'keywords_score': keywords_score,
-#         'degree_score': degree_score,
-#         'title_score': title_score,
-#         'hard_skills_report': hard_skills_report,
-#         'soft_skills_report': soft_skills_report,
-#         'keywords_report': keywords_report,
-#         'title_report': title_report,
-#         'degree_report': degree_report,
-#         'resume_content': resume_content_combined,
-#         'job_description': job.description,
-#     })
-
-
-# ----------------- AI-Generated Resume -----------------
-# def match_score_page(request):
-#     """
-#     View to calculate match score breakdown for both raw and AI-processed resume content.
-#     """
-#     user = User.objects.get(id=request.session['info']['id'])
-    
-#     # Fetch job description
-#     job = Job.objects.filter(user_id=user.id).first()
-#     if not job:
-#         return render(request, 'match_score.html', {
-#             'error': 'No job description found for this user.',
-#         })
-#     print("Job:", job)
-
-#     # Fetch raw resume content (using `description` instead of `content`)
-#     raw_resume_content = Experience.objects.filter(user_id=user.id).values_list('description', flat=True)
-#     raw_resume_content_combined = ' '.join(raw_resume_content)
-    
-#     # Use rewritten_resume from the session
-#     processed_resume_content = request.session.get('rewritten_resume', None)
-
-#     # Convert HTML content to plain text
-#     if processed_resume_content:
-#         soup = BeautifulSoup(processed_resume_content, 'html.parser')
-#         processed_resume_content = soup.get_text(separator="\n")  # Use '\n' to separate sections
-#     else:
-#         print("Processed Resume Content is None, using raw resume content as fallback.")
-#         processed_resume_content = raw_resume_content_combined
-
-#     # Debug: Print contents
-#     print("Raw Resume Content:", raw_resume_content_combined)
-#     print("Processed Resume Content (Plain Text):", processed_resume_content)
-#     print("Processed Resume Content:", processed_resume_content)
-#     print("Job Description:", job.description)
-
-#     # Predefined categories
-#     hard_skills = ["Python", "SQL", "JavaScript", "Java", "AWS"]
-#     soft_skills = ["Communication", "Leadership", "Time Management", "Adaptability"]
-#     other_keywords = ["Technology", "Innovation", "Challenges", "Collaboration"]
-
-#     # Calculate match scores for raw resume content
-#     raw_hard_skills_score = calculate_category_match(hard_skills, raw_resume_content_combined)
-#     raw_soft_skills_score = calculate_category_match(soft_skills, raw_resume_content_combined)
-#     raw_keywords_score = calculate_category_match(other_keywords, raw_resume_content_combined)
-#     raw_degree_score = 100 if "master's" in raw_resume_content_combined.lower() else 0
-#     raw_title_score = 100 if job.job_title.lower() in raw_resume_content_combined.lower() else 0
-#     raw_overall_score = round(
-#         (raw_hard_skills_score * 0.4) +
-#         (raw_soft_skills_score * 0.2) +
-#         (raw_keywords_score * 0.2) +
-#         (raw_degree_score * 0.1) +
-#         (raw_title_score * 0.1),
-#         2
-#     )
-
-#     # Calculate match scores for AI-processed resume content
-#     processed_hard_skills_score = calculate_category_match(hard_skills, processed_resume_content)
-#     processed_soft_skills_score = calculate_category_match(soft_skills, processed_resume_content)
-#     processed_keywords_score = calculate_category_match(other_keywords, processed_resume_content)
-#     processed_degree_score = 100 if "master's" in processed_resume_content.lower() else 0
-#     processed_title_score = 100 if job.job_title.lower() in processed_resume_content.lower() else 0
-#     processed_overall_score = round(
-#         (processed_hard_skills_score * 0.4) +
-#         (processed_soft_skills_score * 0.2) +
-#         (processed_keywords_score * 0.2) +
-#         (processed_degree_score * 0.1) +
-#         (processed_title_score * 0.1),
-#         2
-#     )
-
-#     # return render(request, 'match_score.html', {
-#     #     'raw_overall_score': raw_overall_score,
-#     #     'raw_hard_skills_score': raw_hard_skills_score,
-#     #     'raw_soft_skills_score': raw_soft_skills_score,
-#     #     'raw_keywords_score': raw_keywords_score,
-#     #     'raw_degree_score': raw_degree_score,
-#     #     'raw_title_score': raw_title_score,
-#     #     'processed_overall_score': processed_overall_score,
-#     #     'processed_hard_skills_score': processed_hard_skills_score,
-#     #     'processed_soft_skills_score': processed_soft_skills_score,
-#     #     'processed_keywords_score': processed_keywords_score,
-#     #     'processed_degree_score': processed_degree_score,
-#     #     'processed_title_score': processed_title_score,
-#     #     'raw_resume_content': raw_resume_content_combined,
-#     #     'processed_resume_content': processed_resume_content,
-#     #     'job_description': job.description,
-#     # })
-
-
-#     # Generate reports for missing hard skills
-#     missing_raw_hard_skills = [skill for skill in hard_skills if skill.lower() not in raw_resume_content_combined.lower()]
-#     missing_processed_hard_skills = [skill for skill in hard_skills if skill.lower() not in processed_resume_content.lower()]
-
-#     raw_hard_skills_report = f"Missing Hard Skills: {', '.join(missing_raw_hard_skills)}" if missing_raw_hard_skills else "All hard skills matched."
-#     processed_hard_skills_report = f"Missing Hard Skills: {', '.join(missing_processed_hard_skills)}" if missing_processed_hard_skills else "All hard skills matched."
-
-#     # Repeat similar logic for soft skills, keywords, title, and degree
-#     missing_raw_soft_skills = [skill for skill in soft_skills if skill.lower() not in raw_resume_content_combined.lower()]
-#     missing_processed_soft_skills = [skill for skill in soft_skills if skill.lower() not in processed_resume_content.lower()]
-
-#     raw_soft_skills_report = f"Missing Soft Skills: {', '.join(missing_raw_soft_skills)}" if missing_raw_soft_skills else "All soft skills matched."
-#     processed_soft_skills_report = f"Missing Soft Skills: {', '.join(missing_processed_soft_skills)}" if missing_processed_soft_skills else "All soft skills matched."
-
-#     return render(request, 'match_score.html', {
-#         # Raw Scores and Reports
-#         'raw_overall_score': raw_overall_score,
-#         'raw_hard_skills_score': raw_hard_skills_score,
-#         'raw_soft_skills_score': raw_soft_skills_score,
-#         'raw_keywords_score': raw_keywords_score,
-#         'raw_degree_score': raw_degree_score,
-#         'raw_title_score': raw_title_score,
-#         'raw_hard_skills_report': raw_hard_skills_report,
-#         'raw_soft_skills_report': raw_soft_skills_report,
-#         'raw_keywords_report': raw_keywords_report,
-#         'raw_title_report': raw_title_report,
-#         'raw_degree_report': raw_degree_report,
-
-#         # Processed Scores and Reports
-#         'processed_overall_score': processed_overall_score,
-#         'processed_hard_skills_score': processed_hard_skills_score,
-#         'processed_soft_skills_score': processed_soft_skills_score,
-#         'processed_keywords_score': processed_keywords_score,
-#         'processed_degree_score': processed_degree_score,
-#         'processed_title_score': processed_title_score,
-#         'processed_hard_skills_report': processed_hard_skills_report,
-#         'processed_soft_skills_report': processed_soft_skills_report,
-#         'processed_keywords_report': processed_keywords_report,
-#         'processed_title_report': processed_title_report,
-#         'processed_degree_report': processed_degree_report,
-#     })
+    return raw_resume_content_combined, processed_resume_content
 
 
 def match_score_page(request):
     """
-    View to calculate match score breakdown for both raw and AI-processed resume content.
+    Main view to calculate match score breakdown for both raw and AI-processed resume content.
     """
     user = User.objects.get(id=request.session['info']['id'])
 
@@ -590,142 +373,67 @@ def match_score_page(request):
             'error': 'No job description found for this user.',
         })
 
-    # Fetch raw resume content (using `description` instead of `content`)
-    raw_resume_content = Experience.objects.filter(user_id=user.id).values_list('description', flat=True)
-    raw_resume_content_combined = ' '.join(raw_resume_content)
+    # Fetch raw and processed resume content
+    raw_resume_content, processed_resume_content = fetch_resume_content(request, user)
 
-    # Use rewritten_resume from the session
-    processed_resume_content = request.session.get('rewritten_resume', None)
+    # Calculate skill-based scores
+    scores_and_reports = calculate_skill_scores(job, raw_resume_content, processed_resume_content)
 
-    # Convert HTML content to plain text
-    if processed_resume_content:
-        soup = BeautifulSoup(processed_resume_content, 'html.parser')
-        processed_resume_content = soup.get_text(separator="\n")
-    else:
-        processed_resume_content = raw_resume_content_combined
+    # Calculate degree and title scores
+    raw_degree_score, raw_title_score = calculate_title_degree_scores(raw_resume_content, job)
+    processed_degree_score, processed_title_score = calculate_title_degree_scores(processed_resume_content, job)
 
-    # Predefined categories
-    hard_skills = ["Python", "SQL", "JavaScript", "Java", "AWS"]
-    soft_skills = ["Communication", "Leadership", "Time Management", "Adaptability"]
-    other_keywords = ["Technology", "Innovation", "Challenges", "Collaboration"]
+    # Ensure processed scores are not lower than raw scores
+    processed_degree_score = max(processed_degree_score, raw_degree_score)
+    processed_title_score = max(processed_title_score, raw_title_score)
 
-    # Calculate match scores for raw resume content
-    raw_hard_skills_score = calculate_category_match(hard_skills, raw_resume_content_combined)
-    raw_soft_skills_score = calculate_category_match(soft_skills, raw_resume_content_combined)
-    raw_keywords_score = calculate_category_match(other_keywords, raw_resume_content_combined)
-    raw_degree_score = 100 if "master's" in raw_resume_content_combined.lower() else 0
-    raw_title_score = 100 if job.job_title.lower() in raw_resume_content_combined.lower() else 0
-    raw_overall_score = round(
-        (raw_hard_skills_score * 0.4) +
-        (raw_soft_skills_score * 0.2) +
-        (raw_keywords_score * 0.2) +
-        (raw_degree_score * 0.1) +
-        (raw_title_score * 0.1),
-        2
+    # Calculate overall scores
+    raw_overall_score = calculate_overall_score(
+        scores_and_reports["Hard Skills"]["raw_score"],
+        scores_and_reports["Soft Skills"]["raw_score"],
+        scores_and_reports["Keywords"]["raw_score"],
+        raw_degree_score,
+        raw_title_score,
     )
 
-    # Calculate match scores for AI-processed resume content
-    processed_hard_skills_score = calculate_category_match(hard_skills, processed_resume_content)
-    processed_soft_skills_score = calculate_category_match(soft_skills, processed_resume_content)
-    processed_keywords_score = calculate_category_match(other_keywords, processed_resume_content)
-    processed_degree_score = 100 if "master's" in processed_resume_content.lower() else 0
-    processed_title_score = 100 if job.job_title.lower() in processed_resume_content.lower() else 0
-    processed_overall_score = round(
-        (processed_hard_skills_score * 0.4) +
-        (processed_soft_skills_score * 0.2) +
-        (processed_keywords_score * 0.2) +
-        (processed_degree_score * 0.1) +
-        (processed_title_score * 0.1),
-        2
+    processed_overall_score = calculate_overall_score(
+        scores_and_reports["Hard Skills"]["processed_score"],
+        scores_and_reports["Soft Skills"]["processed_score"],
+        scores_and_reports["Keywords"]["processed_score"],
+        processed_degree_score,
+        processed_title_score,
     )
 
-    # Generate reports with friendly language
-    missing_raw_hard_skills = [skill for skill in hard_skills if skill.lower() not in raw_resume_content_combined.lower()]
-    missing_processed_hard_skills = [skill for skill in hard_skills if skill.lower() not in processed_resume_content.lower()]
-    raw_hard_skills_report = (
-        f"Great work! You have most of the hard skills we are looking for."
-        if not missing_raw_hard_skills
-        else f"You are missing {len(missing_raw_hard_skills)} hard skills: {', '.join(missing_raw_hard_skills)}."
-    )
-    processed_hard_skills_report = (
-        f"Great work! You have most of the hard skills we are looking for."
-        if not missing_processed_hard_skills
-        else f"You are missing {len(missing_processed_hard_skills)} hard skills: {', '.join(missing_processed_hard_skills)}."
-    )
+    # Generate title and degree reports
+    raw_title_report = generate_title_degree_report(raw_title_score, "Job Title")
+    processed_title_report = generate_title_degree_report(processed_title_score, "Job Title")
+    raw_degree_report = generate_title_degree_report(raw_degree_score, "Degree")
+    processed_degree_report = generate_title_degree_report(processed_degree_score, "Degree")
 
-    # Repeat similar logic for soft skills, keywords, title, and degree
-    missing_raw_soft_skills = [skill for skill in soft_skills if skill.lower() not in raw_resume_content_combined.lower()]
-    missing_processed_soft_skills = [skill for skill in soft_skills if skill.lower() not in processed_resume_content.lower()]
-    raw_soft_skills_report = (
-        f"Fantastic! You are doing great with soft skills."
-        if not missing_raw_soft_skills
-        else f"You are missing {len(missing_raw_soft_skills)} soft skills: {', '.join(missing_raw_soft_skills)}."
-    )
-    processed_soft_skills_report = (
-        f"Fantastic! You are doing great with soft skills."
-        if not missing_processed_soft_skills
-        else f"You are missing {len(missing_processed_soft_skills)} soft skills: {', '.join(missing_processed_soft_skills)}."
-    )
-
-    missing_raw_keywords = [keyword for keyword in other_keywords if keyword.lower() not in raw_resume_content_combined.lower()]
-    missing_processed_keywords = [keyword for keyword in other_keywords if keyword.lower() not in processed_resume_content.lower()]
-    raw_keywords_report = (
-        f"Excellent! Your resume contains most of the important keywords."
-        if not missing_raw_keywords
-        else f"You are missing {len(missing_raw_keywords)} important keywords: {', '.join(missing_raw_keywords)}."
-    )
-    processed_keywords_report = (
-        f"Excellent! Your resume contains most of the important keywords."
-        if not missing_processed_keywords
-        else f"You are missing {len(missing_processed_keywords)} important keywords: {', '.join(missing_processed_keywords)}."
-    )
-
-    raw_title_report = (
-        "Great work! The job title matches your resume perfectly."
-        if raw_title_score == 100
-        else "Consider aligning your job title with the job posting for a better match."
-    )
-    processed_title_report = (
-        "Great work! The job title matches your resume perfectly."
-        if processed_title_score == 100
-        else "Consider aligning your job title with the job posting for a better match."
-    )
-
-    raw_degree_report = (
-        "Congratulations! Your degree meets the job requirements."
-        if raw_degree_score == 100
-        else "Consider highlighting your degree more prominently in your resume."
-    )
-    processed_degree_report = (
-        "Congratulations! Your degree meets the job requirements."
-        if processed_degree_score == 100
-        else "Consider highlighting your degree more prominently in your resume."
-    )
-
+    # Render the response
     return render(request, 'match_score.html', {
-        # Raw Scores and Reports
         'raw_overall_score': raw_overall_score,
-        'raw_hard_skills_score': raw_hard_skills_score,
-        'raw_soft_skills_score': raw_soft_skills_score,
-        'raw_keywords_score': raw_keywords_score,
-        'raw_degree_score': raw_degree_score,
-        'raw_title_score': raw_title_score,
-        'raw_hard_skills_report': raw_hard_skills_report,
-        'raw_soft_skills_report': raw_soft_skills_report,
-        'raw_keywords_report': raw_keywords_report,
-        'raw_title_report': raw_title_report,
-        'raw_degree_report': raw_degree_report,
-
-        # Processed Scores and Reports
         'processed_overall_score': processed_overall_score,
-        'processed_hard_skills_score': processed_hard_skills_score,
-        'processed_soft_skills_score': processed_soft_skills_score,
-        'processed_keywords_score': processed_keywords_score,
+
+        'raw_hard_skills_score': scores_and_reports["Hard Skills"]["raw_score"],
+        'processed_hard_skills_score': scores_and_reports["Hard Skills"]["processed_score"],
+        'raw_soft_skills_score': scores_and_reports["Soft Skills"]["raw_score"],
+        'processed_soft_skills_score': scores_and_reports["Soft Skills"]["processed_score"],
+        'raw_keywords_score': scores_and_reports["Keywords"]["raw_score"],
+        'processed_keywords_score': scores_and_reports["Keywords"]["processed_score"],
+        'raw_degree_score': raw_degree_score,
         'processed_degree_score': processed_degree_score,
+        'raw_title_score': raw_title_score,
         'processed_title_score': processed_title_score,
-        'processed_hard_skills_report': processed_hard_skills_report,
-        'processed_soft_skills_report': processed_soft_skills_report,
-        'processed_keywords_report': processed_keywords_report,
+
+        'raw_hard_skills_report': scores_and_reports["Hard Skills"]["raw_report"],
+        'processed_hard_skills_report': scores_and_reports["Hard Skills"]["processed_report"],
+        'raw_soft_skills_report': scores_and_reports["Soft Skills"]["raw_report"],
+        'processed_soft_skills_report': scores_and_reports["Soft Skills"]["processed_report"],
+        'raw_keywords_report': scores_and_reports["Keywords"]["raw_report"],
+        'processed_keywords_report': scores_and_reports["Keywords"]["processed_report"],
+        'raw_title_report': raw_title_report,
         'processed_title_report': processed_title_report,
+        'raw_degree_report': raw_degree_report,
         'processed_degree_report': processed_degree_report,
     })
