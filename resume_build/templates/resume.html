@@ -1,130 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resume</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-        }
+{% extends 'resume_build/base.html' %}
 
-        .container {
-            max-width: 800px;
-            margin: 20px auto;
-            background: #fff;
-            padding: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
+{% block title %}Create Resume{% endblock %}
 
-        .download-button {
-            float: right;
-            margin: 10px 0;
-            padding: 10px 20px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 16px;
-        }
-
-        .download-button:hover {
-            background-color: #0056b3;
-        }
-
-        h1, h2, h3 {
-            color: #333;
-        }
-
-        .section {
-            margin-bottom: 20px;
-        }
-
-        .section-header {
-            border-bottom: 2px solid #333;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-        }
-
-        .skills-list, .bullet-points {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        .skills-list li, .bullet-points li {
-            background: #f4f4f4;
-            margin: 5px 0;
-            padding: 5px 10px;
-            border-left: 5px solid #333;
-        }
-    </style>
-</head>
-<body>
+{% block content %}
 <div class="container">
-    <!-- Buttons (Back to Home & Download PDF) -->
-    <div style="text-align: right; margin-bottom: 10px;">
-        <a href="/index/" class="download-button" style="background-color: #28a745; margin-left: 10px;">Back to Home</a>
-        <a href="/download_pdf/" class="download-button">Download PDF</a>
-    </div>
-
-    <!-- User Information -->
+    {% if rewritten_resume %}
     <div class="section">
-        <h1 id="name">Name: {{ name }}</h1>
-        <p><strong>Username:</strong> {{ username }}</p>
-        <p><strong>Country:</strong> {{ country }}</p>
-        <p><strong>City:</strong> {{ city }}</p>
-        <p><strong>Phone:</strong> {{ phone }}</p>
-        <p><strong>Email:</strong> {{ email }}</p>
+        {{ rewritten_resume|safe }}
     </div>
-
-    <!-- Skills Section -->
-    <div class="section">
-        <h2 class="section-header">Skills</h2>
-        <ul class="skills-list">
-            {% for skill in skills %}
-                <li>{{ skill }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-
-    <!-- Experience Section -->
-    <div class="section">
-        <h2 class="section-header">Experience</h2>
-        {% for experience in experiences %}
-            <div class="experience-item">
-                <h3>{{ experience.position }} at {{ experience.institution_name }}</h3>
-                <p><strong>Department and Role:</strong> {{ experience.department_and_role }}</p>
-                <p><strong>Duration:</strong> {{ experience.start_year }}/{{ experience.start_month }}
-                    - {{ experience.end_year }}/{{ experience.end_month }}</p>
-                <p><strong>Details:</strong> {{ experience.content }}</p>
-                <ul class="bullet-points">
-                    {% for bullet in experience.bullet_points %}
-                        <li>{{ bullet }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endfor %}
-    </div>
-
-    <!-- Education Section -->
-    <div class="section">
-        <h2 class="section-header">Education</h2>
-        {% for education in education_list %}
-            <div class="education-item">
-                <h3>{{ education.school_name }}</h3>
-                <p><strong>Major:</strong> {{ education.major }}</p>
-                <p><strong>Duration:</strong> {{ education.start_year }}/{{ education.start_month }}
-                    - {{ education.end_year }}/{{ education.end_month }}</p>
-                <p><strong>GPA:</strong> {{ education.gpa }}</p>
-                <p><strong>Scholarships:</strong> {{ education.scholarships }}</p>
-            </div>
-        {% endfor %}
-    </div>
+    {% else %}
+    <p>No rewritten resume available.</p>
+    {% endif %}
 </div>
-</body>
-</html>
+{% endblock %}

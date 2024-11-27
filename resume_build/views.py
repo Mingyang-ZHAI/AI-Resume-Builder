@@ -9,10 +9,13 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from openai import OpenAI
+import markdown
 
 from resume_build.forms import LoginForm, JobForm
 from resume_build.models import User, Education, Experience, Job
 
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 def login_view(request):
     if request.method == 'POST':
@@ -80,9 +83,14 @@ def create_resume(request):
 
 def save_resume(request):
     try:
-        # Retrieve the user object based on session ID
-        user = User.objects.get(id=request.session['info']['id'])
+        if request.method != 'POST':
+            return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+
+        # Parse JSON data from request body
         res_data = json.loads(request.body)
+
+        # Retrieve the user object
+        user = User.objects.get(id=request.session['info']['id'])
 
         # Update basic user info
         user_data = res_data['basicInfo']
@@ -92,90 +100,123 @@ def save_resume(request):
             city=user_data['city'],
             phone=user_data['phone'],
             email=user_data['email'],
-            skills=res_data['skills']
+            skills=res_data['skills']  # Assuming "skills" is stored as JSON or a list
         )
 
         # Process and update education data
         education_data = res_data.get('education', [])
-        # Delete all existing education records for the user
-        Education.objects.filter(user_id=user.id).delete()
+        Education.objects.filter(user_id=user.id).delete()  # Clear old records
 
-        # Insert new education records
         education_objs = []
         for edu in education_data:
-            education_objs.append(Education(
-                user_id=user,
-                start_year=int(edu.get('education_start_year', 0)) or None,
-                start_month=int(edu.get('education_start_month', 0)) or None,
-                end_year=int(edu.get('education_end_year', 0)) or None,
-                end_month=int(edu.get('education_end_month', 0)) or None,
-                school_name=edu.get('education_school_name', 'Unknown School'),
-                major=edu.get('education_major', 'Undeclared Major'),
-                gpa=float(edu.get('education_gpa', 0)) or None,
-                scholarships=edu.get('education_scholarships', '')
-            ))
+            # Parse year range for education (e.g., "2018-2022" or "2022-Present")
+            year_range = edu.get('education_year', '')
+            start_year, end_year = (
+                year_range.split('-') if '-' in year_range else (None, None)
+            )
+            end_year = end_year if end_year != "Present" else None
 
+            education_objs.append(
+                Education(
+                    user_id=user,
+                    school_name=edu.get('education_school', 'Unknown School'),
+                    degree=edu.get('education_degree', 'Unknown Degree'),
+                    major=edu.get('education_major', 'Undeclared Major'),
+                    start_year=int(start_year) if start_year and start_year.isdigit() else None,
+                    end_year=int(end_year) if end_year and end_year.isdigit() else None,
+                    gpa=float(edu.get('education_gpa', 0)) if edu.get('education_gpa') else None,
+                    ongoing=end_year is None
+                )
+            )
         if education_objs:
             Education.objects.bulk_create(education_objs)
 
         # Process and update experience data
         experience_data = res_data.get('experience', [])
-        # Delete all existing experience records for the user
-        Experience.objects.filter(user_id=user.id).delete()
+        Experience.objects.filter(user_id=user.id).delete()  # Clear old records
 
-        # Insert new experience records
         experience_objs = []
         for exp in experience_data:
-            experience_objs.append(Experience(
-                user_id=user,
-                start_year=int(exp.get('experience_start_year', 0)) or None,
-                start_month=int(exp.get('experience_start_month', 0)) or None,
-                end_year=int(exp.get('experience_end_year', 0)) or None,
-                end_month=int(exp.get('experience_end_month', 0)) or None,
-                institution_name=exp.get('experience_institution_name', ''),
-                position=exp.get('experience_position', ''),
-                department_and_role=exp.get('experience_department_and_role', ''),
-                content=exp.get('content', ''),
-                bullet_points=exp.get('bullet_points', [])
-            ))
+            # Parse year range for experience (e.g., "2020-2022" or "2021-Present")
+            year_range = exp.get('experience_year', '')
+            start_year, end_year = (
+                year_range.split('-') if '-' in year_range else (None, None)
+            )
+            end_year = end_year if end_year != "Present" else None
 
+            experience_objs.append(
+                Experience(
+                    user_id=user,
+                    institution_name=exp.get('experience_company', 'Unknown Company'),
+                    position=exp.get('experience_position', 'Unknown Position'),
+                    start_year=int(start_year) if start_year and start_year.isdigit() else None,
+                    end_year=int(end_year) if end_year and end_year.isdigit() else None,
+                    description=exp.get('experience_description', ''),
+                    ongoing=end_year is None
+                )
+            )
         if experience_objs:
             Experience.objects.bulk_create(experience_objs)
 
         return JsonResponse({'status': 'success', 'message': 'Your resume has been successfully updated.'}, status=200)
+
     except Exception as e:
-        # Return error response
+        print(f"Error: {e}")
         return JsonResponse({'status': 'error', 'message': f'An error occurred: {e}'}, status=400)
+
+
 
 
 def job_description(request):
     user = User.objects.get(id=request.session['info']['id'])
     if request.method == 'POST':
-        form = JobForm(request.POST)
-        if form.is_valid():
-            job_title = form.cleaned_data['job_title']
-            description = form.cleaned_data['description']
-            if Job.objects.filter(user_id=user.id).exists():
-                Job.objects.filter(user_id=request.session['info']['id']).first().delete()
-            job_data = Job(user_id=user, job_title=job_title, description=description)
-            job_data.save()
-            return redirect('show_resume')
-    else:
-        form = JobForm()
-    return render(request, 'resume_build/job_description.html', {'form': form})
+        job_title = request.POST.get('job_title', '').strip()
+        description = request.POST.get('description', '').strip()
+
+        if not job_title or not description:
+            return render(request, 'resume_build/job_description.html', {
+                'error': 'Both job title and description are required.'
+            })
+
+        # Save job data (if needed)
+        job_data, created = Job.objects.update_or_create(
+            user_id=user,
+            defaults={'job_title': job_title, 'description': description}
+        )
+
+        # Generate the rewritten resume using AI
+        rewritten_resume = rewrite_resume(user.id, job_title)
+
+        # Redirect to show_resume with the rewritten resume
+        return redirect(f'/show_resume/?rewritten_resume={json.dumps(rewritten_resume)}')
+
+    return render(request, 'resume_build/job_description.html')
 
 
 def show_resume(request):
+    if request.method == 'POST':
+        user_id = request.session['info']['id']
+        job_title = request.POST.get('job_title', '')
+        description = request.POST.get('description', '')
+
+        # Fetch the User instance using user_id
+        user = User.objects.get(id=user_id)
+
+        # Store job description details if needed
+        Job.objects.update_or_create(
+            user_id=user,  # Use the User instance here
+            defaults={'job_title': job_title, 'description': description},
+        )
+
+        # Rewrite the resume
+        rewritten_resume = rewrite_resume(user_id, job_title, description)
+
+        # Save the rewritten resume to the session
+        request.session['rewritten_resume'] = rewritten_resume
+
+    # Fetch the rewritten resume to display
+    rewritten_resume = request.session.get('rewritten_resume', None)
     user = User.objects.get(id=request.session['info']['id'])
-    experiences = Experience.objects.filter(user_id=user)
-
-    response_data = []
-
-    for exp in experiences:
-        if exp.content:
-            exp.content = connect_ai(exp.content, user.id)
-            response_data.append(exp.content)
-    Job.objects.filter(user_id=user.id).update(response=response_data)
 
     context = {
         'name': user.name,
@@ -184,11 +225,11 @@ def show_resume(request):
         'city': user.city,
         'phone': user.phone,
         'email': user.email,
-        'skills': user.skills,
-        'experiences': experiences,
-        'education_list': Education.objects.filter(user_id=user),
+        'rewritten_resume': rewritten_resume,
     }
     return render(request, 'resume.html', context)
+
+
 
 
 def download_pdf(request):
@@ -220,31 +261,182 @@ def download_pdf(request):
     response['Content-Disposition'] = f'attachment; filename="{user.id}.pdf"'
     return response
 
-
-def connect_ai(text, user_id):
-    job_data = Job.objects.filter(user_id=user_id).first()
+    
+def rewrite_resume(user_id, job_title, job_description):
+    """
+    Takes a user's resume data and rewrites it in a professional, HTML-formatted style for a specific job title and job description.
+    """
     try:
+        # Fetch user data
+        user = User.objects.get(id=user_id)
+        education = Education.objects.filter(user_id=user_id)
+        experience = Experience.objects.filter(user_id=user_id)
+
+        # Prepare details for the AI prompt
+        education_details = "\n".join([
+            f"{edu.school_name}, {edu.degree} in {edu.major} ({edu.start_year or 'N/A'}-{edu.end_year or 'Present'})"
+            f"{' - GPA: ' + str(edu.gpa) if edu.gpa else ''}"
+            for edu in education
+        ])
+
+        experience_details = "\n".join([
+            f"{exp.position} at {exp.institution_name} ({exp.start_year or 'N/A'}-{exp.end_year or 'Present'}): {exp.description}"
+            for exp in experience
+        ])
+
+        skills = ", ".join(user.skills) if user.skills else "Not specified"
+
+        # AI prompt
+        prompt = f"""
+        Rewrite the following resume for a {job_title} position with the provided description ({job_description}). Structure the output in valid HTML format with the following sections:
+        1. Summary
+        2. Education
+        3. Professional Experience
+        4. Skills
+
+        Improve the language, add professional wording, and tailor it to the job title while maintaining the facts.
+        Highlight relevant skills and achievements, and add industry-appropriate points if necessary. 
+
+        Output only the formatted resume. Do not include any additional notes, explanations, or comments. Use appropriate headings (e.g., <h2>, <h3>), paragraphs (<p>), and bullet points (<ul>, <li>). 
+
+        Resume Details:
+        Name: {user.name}
+        Contact Information: Email - {user.email}, Phone - {user.phone}, Location - {user.city}, {user.country}
+        Education:
+        {education_details}
+        Experience:
+        {experience_details}
+        Skills: {skills}
+        """
+
+        # Use the existing AI client to fetch the response
         client = OpenAI(
             base_url="https://api.studio.nebius.ai/v1/",
-            api_key="eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDExMTA0MjE4ODY5OTUzMDkwNTU2MCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg5MDA5NTU4OSwidXVpZCI6ImRlZjYwOWQ0LTNiZGYtNGVjNS04MmJiLTEyMDAxMWIxNDc3ZSIsIm5hbWUiOiJ0ZXN0IiwiZXhwaXJlc19hdCI6IjIwMjktMTEtMjNUMDI6MzM6MDkrMDAwMCJ9.nfdZwP9DKk5MNiRlq8ZJ27dVz3S7lars0sGVdJceb90",
+            api_key="eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwNjE1OTMwMzEwNTQyOTIxNzM4OCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg5MDMzMTk3OCwidXVpZCI6IjEyZWExYTE0LWY4MDEtNGFjMy1hNDJkLWQ5NmVjNTQ4M2M5ZSIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTI1VDIwOjEyOjU4KzAwMDAifQ.HQ1oPQQGkwiIi8BJGh3459jj4pEbhOrp387-kpQ3xkY",
         )
         completion = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3.1-70B-Instruct",
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"I would like to post {job_data.job_title}, the post requirements are as follows {job_data.description}, please help me to modify the Experience content field, please use it to post this post, about 50 words, and directly tell me the answer. Do not divide!: {text}"
-                }
-            ],
-            temperature=0.6
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.6,
         )
         response = json.loads(completion.to_json())['choices'][0]['message']['content']
-        print('before')
-        print(text)
-        print('-----')
-        print('end')
-        print(response)
-        return response.split('\n')[-1]
+        return response.strip()
+
     except Exception as e:
-        print(e)
-        return text
+        print(f"Error rewriting resume: {e}")
+        return "<p>An error occurred while rewriting the resume.</p>"
+
+
+def rewrite_resume_view(request):
+    if request.method == 'POST':
+        user_id = request.session['info']['id']
+        job_title = request.POST.get('job_title')
+        description = request.POST.get('description', '')
+
+        # Call the AI to rewrite the resume
+        rewritten_resume = rewrite_resume(user_id, job_title, description)
+
+        # Save the rewritten resume to the session
+        request.session['rewritten_resume'] = rewritten_resume
+
+        # Redirect to the show_resume page
+        return JsonResponse({"redirect_url": "/show_resume/"})
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=400)
+
+
+def calculate_category_match(category_keywords, content):
+    """
+    Calculate match percentage for a specific category of keywords.
+    Args:
+        category_keywords (list): List of keywords for the category.
+        content (str): The content to match the keywords against.
+    Returns:
+        float: Match percentage (0-100).
+    """
+    if not content.strip():  # Ensure content is not empty
+        return 0.0
+    # Preprocess content and keywords
+    content = content.lower()
+    category_keywords = [keyword.lower() for keyword in category_keywords]
+    # Vectorize content and keywords
+    vectorizer = CountVectorizer(vocabulary=category_keywords)
+    content_vector = vectorizer.fit_transform([content])
+    category_vector = vectorizer.transform([' '.join(category_keywords)])
+    # Compute cosine similarity
+    similarity = cosine_similarity(content_vector, category_vector)[0][0]
+    return round(similarity * 100, 2)
+
+
+
+def match_score_page(request):
+    """
+    View to calculate match score breakdown and generate Job Match Report.
+    """
+    user = User.objects.get(id=request.session['info']['id'])
+
+    # Fetch job description and resume content
+    job = Job.objects.filter(user_id=user).first()
+    if not job:
+        return render(request, 'match_score.html', {
+            'error': 'No job description found for this user.',
+        })
+
+    experiences = Experience.objects.filter(user_id=user).values_list('description', flat=True)
+    resume_content_combined = ' '.join(experiences)
+
+    # Predefined categories for matching
+    hard_skills = ["Python", "SQL", "JavaScript", "Java", "AWS"]
+    soft_skills = ["Communication", "Leadership", "Time Management", "Adaptability"]
+    other_keywords = ["Technology", "Innovation", "Challenges", "Collaboration"]
+
+    # Calculate match scores for categories
+    hard_skills_score = calculate_category_match(hard_skills, resume_content_combined)
+    soft_skills_score = calculate_category_match(soft_skills, resume_content_combined)
+    keywords_score = calculate_category_match(other_keywords, resume_content_combined)
+
+    # Degree and Title Match
+    education_content = Education.objects.filter(user_id=user).values_list('degree', flat=True)
+    degree_match = any("master's" in degree.lower() for degree in education_content)
+    degree_score = 100 if degree_match else 0
+
+    title_score = 100 if job.job_title.lower() in resume_content_combined.lower() else 0
+
+    # Calculate Overall Score
+    overall_score = round(
+        (hard_skills_score * 0.4) +
+        (soft_skills_score * 0.2) +
+        (keywords_score * 0.2) +
+        (degree_score * 0.1) +
+        (title_score * 0.1),
+        2
+    )
+
+    # Generate Reports
+    missing_hard_skills = [skill for skill in hard_skills if skill.lower() not in resume_content_combined.lower()]
+    missing_soft_skills = [skill for skill in soft_skills if skill.lower() not in resume_content_combined.lower()]
+    missing_keywords = [keyword for keyword in other_keywords if keyword.lower() not in resume_content_combined.lower()]
+
+    hard_skills_report = f"You are missing {len(missing_hard_skills)} important hard skills: {', '.join(missing_hard_skills)}."
+    soft_skills_report = f"You are missing {len(missing_soft_skills)} soft skills: {', '.join(missing_soft_skills)}."
+    keywords_report = f"You are missing {len(missing_keywords)} other keywords: {', '.join(missing_keywords)}."
+    title_report = "Great Work! The job title matches your resume perfectly." if title_score == 100 else \
+        f"The job title '{job.job_title}' does not match your resume."
+    degree_report = "Congratulations! Your degree meets the job requirements." if degree_score == 100 else \
+        "Your degree does not match the job's requirements of a Master's degree."
+
+    return render(request, 'match_score.html', {
+        'overall_score': overall_score,
+        'hard_skills_score': hard_skills_score,
+        'soft_skills_score': soft_skills_score,
+        'keywords_score': keywords_score,
+        'degree_score': degree_score,
+        'title_score': title_score,
+        'hard_skills_report': hard_skills_report,
+        'soft_skills_report': soft_skills_report,
+        'keywords_report': keywords_report,
+        'title_report': title_report,
+        'degree_report': degree_report,
+        'resume_content': resume_content_combined,
+        'job_description': job.description,
+    })

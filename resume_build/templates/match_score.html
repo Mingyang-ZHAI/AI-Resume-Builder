@@ -1,0 +1,31 @@
+{% extends 'resume_build/base.html' %}
+
+{% block title %}Match Score{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <h1>Match Score Breakdown</h1>
+    <div class="section">
+        <h2>Overall Match Score: <span class="score">{{ overall_score }}%</span></h2>
+    </div>
+    <div class="section">
+        <h3>Breakdown:</h3>
+        <ul>
+            <li>Hard Skills Match: <strong>{{ hard_skills_score }}%</strong></li>
+            <li>Soft Skills Match: <strong>{{ soft_skills_score }}%</strong></li>
+            <li>Other Keywords Match: <strong>{{ keywords_score }}%</strong></li>
+            <li>Degree Match: <strong>{{ degree_score }}%</strong></li>
+            <li>Title Match: <strong>{{ title_score }}%</strong></li>
+        </ul>
+    </div>
+    <div class="report-section">
+        <h3>Job Match Report</h3>
+        <p><strong>Hard Skills:</strong> {{ hard_skills_report }}</p>
+        <p><strong>Soft Skills:</strong> {{ soft_skills_report }}</p>
+        <p><strong>Other Keywords:</strong> {{ keywords_report }}</p>
+        <p><strong>Job Title Match:</strong> {{ title_report }}</p>
+        <p><strong>Degree Match:</strong> {{ degree_report }}</p>
+    </div>
+</div>
+{% endblock %}

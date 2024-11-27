@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 from django.contrib import messages
 
@@ -48,7 +49,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'resume_build.middleware.auth.AuthMiddleware',
 ]
 
 ROOT_URLCONF = 'resume-app.urls'
@@ -130,3 +130,7 @@ MESSAGE_TAGS = {
     messages.ERROR: 'error',
     messages.SUCCESS: 'success',
 }
+
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'resume_build/static')]
+
+LOGIN_URL = '/'
