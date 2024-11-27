@@ -1,171 +1,73 @@
 {% extends 'resume_build/base.html' %}
 
-{% block title %}Match Score Breakdown{% endblock %}
+{% load static %}
+
+{% block title %}
+Match Score Breakdown
+{% endblock %}
 
 {% block content %}
-<style>
-    /* General Body Styling */
-    body {
-        font-family: Arial, sans-serif;
-        background-color: #f4f8fb;
-        color: #333;
-        margin: 0;
-        padding: 0;
-    }
+<link rel="stylesheet" href="{% static 'css/match_score.css' %}">
 
-    /* Container Styling */
-    .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 40px 20px;
-    }
+<div class="match-score-page">
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            <h1>Match Score Breakdown</h1>
+            <p class="subtitle">Compare your resume's performance before and after AI processing.</p>
+        </div>
 
-    /* Header Section */
-    .header {
-        text-align: center;
-        margin-bottom: 40px;
-    }
+        <!-- Two-Column Layout -->
+        <div class="columns">
+            <!-- Before Column -->
+            <div class="column before">
+                <h2>Before AI Processing</h2>
+                <p class="score">Overall Match Score: <span class="highlight">{{ raw_overall_score }}%</span></p>
+                <h4>Breakdown:</h4>
+                <ul>
+                    <li>Hard Skills Match: <span class="highlight">{{ raw_hard_skills_score }}%</span></li>
+                    <li>Soft Skills Match: <span class="highlight">{{ raw_soft_skills_score }}%</span></li>
+                    <li>Other Keywords Match: <span class="highlight">{{ raw_keywords_score }}%</span></li>
+                    <li>Degree Match: <span class="highlight">{{ raw_degree_score }}%</span></li>
+                    <li>Title Match: <span class="highlight">{{ raw_title_score }}%</span></li>
+                </ul>
+                <div class="report-section">
+                    <h3>Job Match Report</h3>
+                    <p><strong>Hard Skills:</strong> {{ raw_hard_skills_report }}</p>
+                    <p><strong>Soft Skills:</strong> {{ raw_soft_skills_report }}</p>
+                    <p><strong>Other Keywords:</strong> {{ raw_keywords_report }}</p>
+                    <p><strong>Job Title Match:</strong> {{ raw_title_report }}</p>
+                    <p><strong>Degree Match:</strong> {{ raw_degree_report }}</p>
+                </div>
+            </div>
 
-    .header h1 {
-        font-size: 32px;
-        color: #1a73e8;
-    }
-
-    /* Flexbox for Before and After Sections */
-    .columns {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-        margin-bottom: 40px;
-    }
-
-    /* Individual Column (Card) */
-    .column {
-        background-color: #ffffff;
-        border-radius: 8px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        padding: 20px;
-        width: 48%;
-    }
-
-    .column h2 {
-        font-size: 24px;
-        color: #1a73e8;
-        text-align: center;
-        margin-bottom: 20px;
-    }
-
-    .score {
-        font-size: 20px;
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 20px;
-    }
-
-    /* Lists */
-    ul {
-        list-style: none;
-        padding: 0;
-    }
-
-    ul li {
-        font-size: 16px;
-        margin-bottom: 10px;
-    }
-
-    .highlight {
-        color: #1a73e8;
-        font-weight: bold;
-    }
-
-    /* Job Match Report Section */
-    .report-section {
-        margin-top: 30px;
-        padding-top: 20px;
-        border-top: 1px solid #ddd;
-    }
-
-    .report-section h3 {
-        font-size: 20px;
-        color: #1a73e8;
-        margin-bottom: 15px;
-    }
-
-    .report-section p {
-        font-size: 16px;
-        margin: 8px 0;
-    }
-
-    /* Footer Section */
-    .footer-custom {
-        background-color: #e8f0fe;
-        padding: 20px;
-        text-align: center;
-        margin-top: 20px;
-        border-radius: 8px;
-        font-size: 18px;
-        color: #333;
-    }
-</style>
-
-<div class="container">
-    <!-- Header -->
-    <div class="header">
-        <h1>Match Score Breakdown</h1>
-        <p>Compare your resume's performance before and after AI processing</p>
-    </div>
-
-    <!-- Before and After Columns -->
-    <div class="columns">
-        <!-- Before Column -->
-        <div class="column">
-            <h2>Before AI Processing</h2>
-            <p class="score">Overall Match Score: <span class="highlight">{{ raw_overall_score }}%</span></p>
-            <h4>Breakdown:</h4>
-            <ul>
-                <li>Hard Skills Match: <span class="highlight">{{ raw_hard_skills_score }}%</span></li>
-                <li>Soft Skills Match: <span class="highlight">{{ raw_soft_skills_score }}%</span></li>
-                <li>Other Keywords Match: <span class="highlight">{{ raw_keywords_score }}%</span></li>
-                <li>Degree Match: <span class="highlight">{{ raw_degree_score }}%</span></li>
-                <li>Title Match: <span class="highlight">{{ raw_title_score }}%</span></li>
-            </ul>
-            <div class="report-section">
-                <h3>Job Match Report</h3>
-                <p><strong>Hard Skills:</strong> {{ raw_hard_skills_report }}</p>
-                <p><strong>Soft Skills:</strong> {{ raw_soft_skills_report }}</p>
-                <p><strong>Other Keywords:</strong> {{ raw_keywords_report }}</p>
-                <p><strong>Job Title Match:</strong> {{ raw_title_report }}</p>
-                <p><strong>Degree Match:</strong> {{ raw_degree_report }}</p>
+            <!-- After Column -->
+            <div class="column after">
+                <h2>After AI Processing</h2>
+                <p class="score">Overall Match Score: <span class="highlight">{{ processed_overall_score }}%</span></p>
+                <h4>Breakdown:</h4>
+                <ul>
+                    <li>Hard Skills Match: <span class="highlight">{{ processed_hard_skills_score }}%</span></li>
+                    <li>Soft Skills Match: <span class="highlight">{{ processed_soft_skills_score }}%</span></li>
+                    <li>Other Keywords Match: <span class="highlight">{{ processed_keywords_score }}%</span></li>
+                    <li>Degree Match: <span class="highlight">{{ processed_degree_score }}%</span></li>
+                    <li>Title Match: <span class="highlight">{{ processed_title_score }}%</span></li>
+                </ul>
+                <div class="report-section">
+                    <h3>Job Match Report</h3>
+                    <p><strong>Hard Skills:</strong> {{ processed_hard_skills_report }}</p>
+                    <p><strong>Soft Skills:</strong> {{ processed_soft_skills_report }}</p>
+                    <p><strong>Other Keywords:</strong> {{ processed_keywords_report }}</p>
+                    <p><strong>Job Title Match:</strong> {{ processed_title_report }}</p>
+                    <p><strong>Degree Match:</strong> {{ processed_degree_report }}</p>
+                </div>
             </div>
         </div>
 
-        <!-- After Column -->
-        <div class="column">
-            <h2>After AI Processing</h2>
-            <p class="score">Overall Match Score: <span class="highlight">{{ processed_overall_score }}%</span></p>
-            <h4>Breakdown:</h4>
-            <ul>
-                <li>Hard Skills Match: <span class="highlight">{{ processed_hard_skills_score }}%</span></li>
-                <li>Soft Skills Match: <span class="highlight">{{ processed_soft_skills_score }}%</span></li>
-                <li>Other Keywords Match: <span class="highlight">{{ processed_keywords_score }}%</span></li>
-                <li>Degree Match: <span class="highlight">{{ processed_degree_score }}%</span></li>
-                <li>Title Match: <span class="highlight">{{ processed_title_score }}%</span></li>
-            </ul>
-            <div class="report-section">
-                <h3>Job Match Report</h3>
-                <p><strong>Hard Skills:</strong> {{ processed_hard_skills_report }}</p>
-                <p><strong>Soft Skills:</strong> {{ processed_soft_skills_report }}</p>
-                <p><strong>Other Keywords:</strong> {{ processed_keywords_report }}</p>
-                <p><strong>Job Title Match:</strong> {{ processed_title_report }}</p>
-                <p><strong>Degree Match:</strong> {{ processed_degree_report }}</p>
-            </div>
+        <!-- Footer Section -->
+        <div class="footer-custom">
+            <p>Ready to take the next step? Keep refining your resume and unlock your potential!</p>
         </div>
-    </div>
-
-    <!-- Footer Section -->
-    <div class="footer-custom">
-        Ready to take the next step? Keep refining your resume and unlock your potential!
     </div>
 </div>
 {% endblock %}
-
