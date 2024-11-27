@@ -33,4 +33,5 @@ urlpatterns = [
     path('show_resume/', show_resume, name='show_resume'),
     path('download_pdf/', download_pdf, name='download_pdf'),
     path('match_score_page/', match_score_page, name='match_score_page'),
+    path('match_score_page/', match_score_page, name='match_score_page'),
 ]
