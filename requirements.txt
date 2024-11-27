@@ -21,3 +21,4 @@ markdown==3.3.6
 scikit-learn==1.5.2
 markdown==3.4.4
 beautifulsoup4==4.13.2
+xhtml2pdf==0.2.16

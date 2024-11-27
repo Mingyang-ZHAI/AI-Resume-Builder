@@ -7,6 +7,9 @@ import pdfkit
 import markdown
 from sklearn.metrics.pairwise import cosine_similarity
 from bs4 import BeautifulSoup
+from io import BytesIO
+from xhtml2pdf import pisa
+
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse, HttpResponse
@@ -17,6 +20,7 @@ from openai import OpenAI
 from resume_build.forms import LoginForm, JobForm
 from resume_build.models import User, Education, Experience, Job
 from .utils.match_score import calculate_overall_score, calculate_skill_scores, calculate_title_degree_scores, generate_title_degree_report
+
 
 
 def login_view(request):
@@ -232,18 +236,68 @@ def show_resume(request):
     return render(request, 'resume.html', context)
 
 
+# def download_pdf(request):
+#     """
+#     Generate a PDF from the rewritten resume and serve it for download.
+#     """
+#     # Fetch the rewritten resume content
+#     user = User.objects.get(id=request.session['info']['id'])
+#     rewritten_resume = request.session.get('rewritten_resume', None)
+
+#     # If no rewritten resume exists, redirect to the show_resume page
+#     if not rewritten_resume:
+#         return render(request, 'resume.html', {
+#             'error': 'No rewritten resume available. Please create one first.',
+#         })
+
+#     # Create context for the PDF
+#     context = {
+#         'name': user.name,
+#         'username': user.username,
+#         'country': user.country,
+#         'city': user.city,
+#         'phone': user.phone,
+#         'email': user.email,
+#         'rewritten_resume': rewritten_resume,
+#     }
+#     print("User:") # Debugging
+#     print(user.name)
+
+
+#     print("Context:")
+#     print(context)
+
+#     # Render the HTML template as a string
+#     html_content = render_to_string('resume.html', context)
+#     # print("HTML Content:")
+#     # print(html_content)
+
+#     # Create a PDF file in memory
+#     pdf_buffer = BytesIO()
+#     pdf_status = pisa.CreatePDF(BytesIO(html_content.encode('utf-8')), dest=pdf_buffer)
+
+#     if pdf_status.err:
+#         return HttpResponse('Error generating PDF', status=500)
+
+#     # Serve the PDF file as a downloadable response
+#     pdf_buffer.seek(0)
+#     response = HttpResponse(pdf_buffer, content_type='application/pdf')
+#     response['Content-Disposition'] = 'attachment; filename="resume.pdf"'
+#     return response
+
 
 
 def download_pdf(request):
+    """
+    Generate a PDF from the rewritten resume and serve it for download.
+    """
     user = User.objects.get(id=request.session['info']['id'])
+    rewritten_resume = request.session.get('rewritten_resume', None)
 
-    job_response = Job.objects.filter(user_id=user.id).first()
+    if not rewritten_resume:
+        return HttpResponse("No rewritten resume available. Please create one first.", status=404)
 
-    experiences = Experience.objects.filter(user_id=user)
-    i = 0
-    for exp in experiences:
-        exp.content = job_response.response[i]
-        i += 1
+    # Create context for the PDF
     context = {
         'name': user.name,
         'username': user.username,
@@ -251,19 +305,42 @@ def download_pdf(request):
         'city': user.city,
         'phone': user.phone,
         'email': user.email,
-        'skills': user.skills,
-        'experiences': experiences,
-        'education_list': Education.objects.filter(user_id=user),
+        'rewritten_resume': rewritten_resume,
     }
-    html_content = render_to_string('resume_pdf.html', context)
-    path_wkhtmltopdf = r"D:\wkhtmltopdf\bin\wkhtmltopdf.exe"  # 替换为实际路径
-    config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
-    pdf = pdfkit.from_string(html_content, False, configuration=config)
-    response = HttpResponse(pdf, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{user.id}.pdf"'
+
+    # Render the full HTML template
+    html_content = render_to_string('resume.html', context)
+
+    # Parse the HTML using BeautifulSoup
+    soup = BeautifulSoup(html_content, 'html.parser')
+
+    # Find and remove the navbar
+    navbar = soup.find(class_="navbar")  # Assuming the navbar has the class 'navbar'
+    if navbar:
+        navbar.decompose()  # Remove the navbar from the HTML
+        
+    # Find and remove the footer
+    footer = soup.find('footer', class_="footer")  # Assuming the footer has a class 'footer'
+    if footer:
+        footer.decompose()  # Remove the footer from the HTML
+
+    # Get the modified HTML
+    modified_html_content = str(soup)
+
+    # Create a PDF file in memory
+    pdf_buffer = BytesIO()
+    pdf_status = pisa.CreatePDF(BytesIO(modified_html_content.encode('utf-8')), dest=pdf_buffer)
+
+    if pdf_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    # Serve the PDF file as a downloadable response
+    pdf_buffer.seek(0)
+    response = HttpResponse(pdf_buffer, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="resume.pdf"'
     return response
 
-    
+
 def rewrite_resume(user_id, job_title, job_description):
     """
     Takes a user's resume data and rewrites it in a professional, HTML-formatted style for a specific job title and job description.
