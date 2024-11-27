@@ -61,12 +61,16 @@ def calculate_skill_scores(job, raw_content, processed_content):
     }
 
     scores_and_reports = {}
-
+    # job = type("Job", (object,), {"description": "Expert in Python and SQL"})()  # Mock object
+    # scores = calculate_skill_scores(hard_skills, resume_content, processed_content)
     for category, skills in skill_categories.items():
         # Extract job-relevant skills
         job_relevant_skills = extract_skills_from_text(job.description, skills)
+        print("job_relevant_skills")
+        print(job_relevant_skills)
 
         if not job_relevant_skills:
+            print("No skills extracted")
             raw_score = 0.0
             processed_score = 0.0
             raw_report = f"No {category.lower()} extracted from the job description."
