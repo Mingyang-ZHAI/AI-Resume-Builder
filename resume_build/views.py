@@ -236,57 +236,6 @@ def show_resume(request):
     return render(request, 'resume.html', context)
 
 
-# def download_pdf(request):
-#     """
-#     Generate a PDF from the rewritten resume and serve it for download.
-#     """
-#     # Fetch the rewritten resume content
-#     user = User.objects.get(id=request.session['info']['id'])
-#     rewritten_resume = request.session.get('rewritten_resume', None)
-
-#     # If no rewritten resume exists, redirect to the show_resume page
-#     if not rewritten_resume:
-#         return render(request, 'resume.html', {
-#             'error': 'No rewritten resume available. Please create one first.',
-#         })
-
-#     # Create context for the PDF
-#     context = {
-#         'name': user.name,
-#         'username': user.username,
-#         'country': user.country,
-#         'city': user.city,
-#         'phone': user.phone,
-#         'email': user.email,
-#         'rewritten_resume': rewritten_resume,
-#     }
-#     print("User:") # Debugging
-#     print(user.name)
-
-
-#     print("Context:")
-#     print(context)
-
-#     # Render the HTML template as a string
-#     html_content = render_to_string('resume.html', context)
-#     # print("HTML Content:")
-#     # print(html_content)
-
-#     # Create a PDF file in memory
-#     pdf_buffer = BytesIO()
-#     pdf_status = pisa.CreatePDF(BytesIO(html_content.encode('utf-8')), dest=pdf_buffer)
-
-#     if pdf_status.err:
-#         return HttpResponse('Error generating PDF', status=500)
-
-#     # Serve the PDF file as a downloadable response
-#     pdf_buffer.seek(0)
-#     response = HttpResponse(pdf_buffer, content_type='application/pdf')
-#     response['Content-Disposition'] = 'attachment; filename="resume.pdf"'
-#     return response
-
-
-
 def download_pdf(request):
     """
     Generate a PDF from the rewritten resume and serve it for download.

@@ -117,6 +117,9 @@ def calculate_title_degree_scores(content, job):
     Returns:
         tuple: A tuple of (degree_score, title_score) where each score is 0-100.
     """
+    if not job.job_title.strip():
+        raise ValueError("Job title cannot be empty.")
+
     # Degrees to match
     degree_keywords = ["master", "phd", "bachelor"]
 
@@ -143,16 +146,6 @@ def calculate_overall_score(hard, soft, keywords, degree, title):
     """
     return round((hard * 0.4) + (soft * 0.2) + (keywords * 0.2) + (degree * 0.1) + (title * 0.1), 2)
 
-
-# def generate_title_degree_report(score, category):
-#     """
-#     Generate a report for the title or degree match.
-#     """
-#     return (
-#         f"Great work! The {category} matches your resume perfectly."
-#         if score == 100
-#         else f"Consider aligning your {category.lower()} with the job posting for a better match."
-#     )
 
 def generate_title_degree_report(score, category, job, content):
     """
