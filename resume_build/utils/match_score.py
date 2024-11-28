@@ -21,6 +21,7 @@ def calculate_category_match(category_keywords, content):
     
     # Preprocess content and keywords
     content = content.lower()
+    content = ' '.join(set(content.lower().split()))  # Remove redundancy in content
     category_keywords = [keyword.lower() for keyword in category_keywords]
     
     # Vectorize content and keywords
@@ -66,11 +67,11 @@ def calculate_skill_scores(job, raw_content, processed_content):
     for category, skills in skill_categories.items():
         # Extract job-relevant skills
         job_relevant_skills = extract_skills_from_text(job.description, skills)
-        print("job_relevant_skills")
-        print(job_relevant_skills)
+        # print("job_relevant_skills")
+        # print(job_relevant_skills)
 
         if not job_relevant_skills:
-            print("No skills extracted")
+            # print("No skills extracted")
             raw_score = 0.0
             processed_score = 0.0
             raw_report = f"No {category.lower()} extracted from the job description."
@@ -108,9 +109,31 @@ def calculate_skill_scores(job, raw_content, processed_content):
 def calculate_title_degree_scores(content, job):
     """
     Calculate degree and title match scores.
+
+    Args:
+        content (str): The text content to analyze (e.g., resume or description).
+        job (object): An object containing job details, including job description and job title.
+
+    Returns:
+        tuple: A tuple of (degree_score, title_score) where each score is 0-100.
     """
-    degree_score = 100 if "master" in content.lower() else 0
-    title_score = 100 if job.job_title.lower() in content.lower() else 0
+    # Degrees to match
+    degree_keywords = ["master", "phd", "bachelor"]
+
+    # Convert to lowercase for case-insensitive comparison
+    content_lower = content.lower()
+    job_description_lower = job.description.lower()
+
+    # Calculate degree score
+    degree_score = 0
+    for degree in degree_keywords:
+        if degree in job_description_lower and degree in content_lower:
+            degree_score = 100
+            break
+
+    # Calculate title score
+    title_score = 100 if job.job_title.lower() in content_lower else 0
+
     return degree_score, title_score
 
 
@@ -121,13 +144,54 @@ def calculate_overall_score(hard, soft, keywords, degree, title):
     return round((hard * 0.4) + (soft * 0.2) + (keywords * 0.2) + (degree * 0.1) + (title * 0.1), 2)
 
 
-def generate_title_degree_report(score, category):
+# def generate_title_degree_report(score, category):
+#     """
+#     Generate a report for the title or degree match.
+#     """
+#     return (
+#         f"Great work! The {category} matches your resume perfectly."
+#         if score == 100
+#         else f"Consider aligning your {category.lower()} with the job posting for a better match."
+#     )
+
+def generate_title_degree_report(score, category, job, content):
     """
     Generate a report for the title or degree match.
-    """
-    return (
-        f"Great work! The {category} matches your resume perfectly."
-        if score == 100
-        else f"Consider aligning your {category.lower()} with the job posting for a better match."
-    )
 
+    Args:
+        score (int): The match score (0 or 100).
+        category (str): The category being evaluated ("Title" or "Degree").
+        job (object): An object containing job details, including job description and job title.
+        content (str): The text content to analyze (e.g., resume or description).
+
+    Returns:
+        str: A report explaining the match or lack thereof.
+    """
+    if category.lower() == "degree":
+        # Degrees to match
+        degree_keywords = ["master", "phd", "bachelor"]
+        content_lower = content.lower()
+        job_description_lower = job.description.lower()
+
+        # Identify missing degrees
+        missing_degrees = [
+            degree for degree in degree_keywords
+            if degree in job_description_lower and degree not in content_lower
+        ]
+        return (
+            f"Great work! The {category.lower()} matches your resume perfectly."
+            if score == 100
+            else f"You are missing these degrees mentioned in the job description: {', '.join(missing_degrees)}."
+            if missing_degrees
+            else "No relevant degree requirements found in the job description."
+        )
+
+    elif category.lower() == "title":
+        return (
+            f"Great work! The {category.lower()} matches your resume perfectly."
+            if score == 100
+            else f"Your resume does not include the job title '{job.job_title}'. Consider aligning your title."
+        )
+
+    else:
+        return f"Invalid category: {category}. Please use 'Title' or 'Degree'."

@@ -482,10 +482,10 @@ def match_score_page(request):
     )
 
     # Generate title and degree reports
-    raw_title_report = generate_title_degree_report(raw_title_score, "Job Title")
-    processed_title_report = generate_title_degree_report(processed_title_score, "Job Title")
-    raw_degree_report = generate_title_degree_report(raw_degree_score, "Degree")
-    processed_degree_report = generate_title_degree_report(processed_degree_score, "Degree")
+    raw_title_report = generate_title_degree_report(raw_title_score, "Title", job, raw_resume_content)
+    processed_title_report = generate_title_degree_report(processed_title_score, "Title", job, raw_resume_content)
+    raw_degree_report = generate_title_degree_report(raw_degree_score, "Degree", job, raw_resume_content)
+    processed_degree_report = generate_title_degree_report(processed_degree_score, "Degree", job, raw_resume_content)
 
     # Render the response
     return render(request, 'match_score.html', {

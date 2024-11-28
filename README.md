@@ -7,5 +7,7 @@ AI-Resume Builder
 Execute the following command:
 
 ```
-python manage.py test resume_build.tests.test_match_score
+python manage.py test resume_build.tests.test_calculate_skill_scores
+python manage.py test resume_build.tests.test_calculate_category_match
+python manage.py test resume_build.tests.test_extract_skills_from_text
 ```
