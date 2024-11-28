@@ -22,6 +22,7 @@
                         <li><a href="/match_score_page/">Match Score</a></li>
                         <li><a href="{% url 'generate_cover_letter' %}">Cover Letter Generator</a></li>
                         <li><a href="/download_pdf/">Download PDF</a></li>
+                        <li><a href="{% url 'template_preview' %}">Download Template PDF</a></li>
                         <li>
                             <form method="post" action="/logout/" style="display: inline;">
                                 {% csrf_token %}

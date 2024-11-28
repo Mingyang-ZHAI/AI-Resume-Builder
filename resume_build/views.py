@@ -525,3 +525,82 @@ def generate_cover_letter(request):
         return render(request, 'resume_build/cover_letter.html', {
             "error": f"An error occurred: {e}"
         })
+
+
+def download_template_resume(request):
+    """
+    Generate a PDF for the selected template using the rewritten resume.
+    """
+    try:
+        # Fetch user information
+        user = User.objects.get(id=request.session['info']['id'])
+        rewritten_resume = request.session.get('rewritten_resume')
+
+        if not rewritten_resume:
+            return HttpResponse("No rewritten resume available. Please generate one first.", status=404)
+
+        # Get the selected template from the query parameter
+        template_name = request.GET.get('template', 'template1')  # Default to template1
+
+        # Prepare context for rendering the template
+        context = {
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone,
+            'city': user.city,
+            'country': user.country,
+            'rewritten_resume': rewritten_resume,
+        }
+
+        # Render the selected template to HTML
+        template_path = f'resume_templates/{template_name}.html'
+        html = render_to_string(template_path, context)
+
+        # Convert HTML to PDF using xhtml2pdf
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{user.name}_resume.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse('Error generating PDF', status=500)
+        return response
+
+    except Exception as e:
+        print(f"Error generating PDF: {e}")
+        return HttpResponse(f"An error occurred: {e}", status=500)
+
+def template_preview(request):
+    user_id = request.session['info']['id']
+    job = Job.objects.filter(user_id=user_id).first()
+    rewritten_resume = request.session.get('rewritten_resume', '')
+
+    templates = [
+        {'name': 'Template 1', 'id': 'template_1'},
+        {'name': 'Template 2', 'id': 'template_2'},
+    ]
+
+    return render(request, 'resume_build/template_preview.html', {
+        'rewritten_resume': rewritten_resume,
+        'job': job,
+        'templates': templates,
+    })
+
+def download_template_pdf(request, template_id):
+    user_id = request.session['info']['id']
+    rewritten_resume = request.session.get('rewritten_resume', '')
+    template_mapping = {
+        'template_1': 'resume_templates/template1.html',
+        'template_2': 'resume_templates/template2.html',
+    }
+
+    template_path = template_mapping.get(template_id, 'resume_build/templates/template_1.html')
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="resume_{template_id}.pdf"'
+
+    html = render_to_string(template_path, {'rewritten_resume': rewritten_resume})
+    pisa_status = pisa.CreatePDF(html, dest=response)
+
+    if pisa_status.err:
+        return HttpResponse(f'We had some errors <pre>{html}</pre>')
+    return response
