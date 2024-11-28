@@ -14,4 +14,9 @@
         {{ cover_letter|safe }}
     </div>
 {% endif %}
+<form method="POST" action="{% url 'regenerate_cover_letter' %}">
+    {% csrf_token %}
+    <br><br>
+    <button type="submit" class="btn">Regenerate Cover Letter</button>
+</form>
 {% endblock %}
