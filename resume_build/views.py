@@ -376,6 +376,8 @@ def rewrite_resume(user_id, job_title, job_description):
         Improve the language, add professional wording, and tailor it to the job title while maintaining the facts.
         Highlight relevant skills and achievements, and add industry-appropriate points if necessary. 
 
+        Make sure not to make up degrees like 'PhD' or 'Master' unless stated in the input.
+
         Output only the formatted resume. Do not include any additional notes, explanations, or comments. Use appropriate headings (e.g., <h2>, <h3>), paragraphs (<p>), and bullet points (<ul>, <li>). 
 
         Resume Details:
