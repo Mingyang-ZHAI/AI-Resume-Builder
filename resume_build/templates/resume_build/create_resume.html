@@ -34,16 +34,14 @@
         <input type="text" id="skill-input" placeholder="Enter a skill">
         <button type="button" id="add-skill">Add Skill</button>
         <ul id="skills-list">
-            <!-- Dynamically render skills from the backend -->
             {% for skill in resume_data.skills %}
-            <li class="skill-tag">
-                <span class="skill-text">{{ skill }}</span>
-                <button type="button" class="remove-skill">x</button>
-            </li>
+                <li class="skill-tag">
+                    <span>{{ skill }}</span>
+                    <button type="button" class="remove-skill">x</button>
+                </li>
             {% endfor %}
-        </ul>
+        </ul>        
     </div>
-    
 
     <!-- Education Section -->
     <h2>Education</h2>
@@ -60,45 +58,89 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    // Skills Functionality
+    // Populate existing data
+    const educations = JSON.parse('{{ educations|safe|escapejs }}');
+    const experiences = JSON.parse('{{ experiences|safe|escapejs }}');
+
+    // Populate Education
+    const educationSection = document.getElementById("education-section");
+    educations.forEach(edu => {
+        const div = document.createElement("div");
+        div.className = "education-entry";
+        div.innerHTML = `
+            <label>School:</label><input type="text" name="education_school" value="${edu.school_name}" required>
+            <label>Degree:</label><input type="text" name="education_degree" value="${edu.degree}" required>
+            <label>Major:</label><input type="text" name="education_major" value="${edu.major}" required>
+            <label>Year:</label><input type="text" name="education_year" value="${edu.start_year || ''}-${edu.end_year || 'Present'}" required>
+            <label>GPA:</label><input type="number" name="education_gpa" step="0.01" value="${edu.gpa || ''}">
+            <button type="button" class="remove-education">Remove</button>
+        `;
+        div.querySelector(".remove-education").addEventListener("click", () => div.remove());
+        educationSection.appendChild(div);
+    });
+
+    // Populate Experience
+    const experienceSection = document.getElementById("experience-section");
+    experiences.forEach(exp => {
+        const div = document.createElement("div");
+        div.className = "experience-entry";
+        div.innerHTML = `
+            <label>Position:</label><input type="text" name="experience_position" value="${exp.position}" required>
+            <label>Company:</label><input type="text" name="experience_company" value="${exp.institution_name}" required>
+            <label>Year:</label><input type="text" name="experience_year" value="${exp.start_year || ''}-${exp.end_year || 'Present'}" required>
+            <label>Description:</label><textarea name="experience_description" required>${exp.description || ''}</textarea>
+            <button type="button" class="remove-experience">Remove</button>
+        `;
+        div.querySelector(".remove-experience").addEventListener("click", () => div.remove());
+        experienceSection.appendChild(div);
+    });
+
+    // Skills Section
     const skillsList = document.getElementById("skills-list");
     const skillInput = document.getElementById("skill-input");
     const addSkillButton = document.getElementById("add-skill");
 
+    // Function to add a skill
+    function addSkill(skillText) {
+        // Ensure the skill text does not include the "x"
+        skillText = skillText.trim();
+
+        const li = document.createElement("li");
+        li.className = "skill-tag";
+
+        // Create a span for the skill text
+        const skillSpan = document.createElement("span");
+        skillSpan.textContent = skillText;
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "remove-skill";
+        removeButton.textContent = "x";
+
+        // Add remove event listener
+        removeButton.addEventListener("click", () => li.remove());
+
+        li.appendChild(skillSpan); // Append skill text
+        li.appendChild(removeButton); // Append remove button
+        skillsList.appendChild(li);
+    }
+
+    // Event listener for adding a new skill
     addSkillButton.addEventListener("click", () => {
         const skill = skillInput.value.trim();
         if (skill) {
-            const li = document.createElement("li");
-            li.className = "skill-tag";
-
-            // Create a span for the skill text
-            const skillSpan = document.createElement("span");
-            skillSpan.textContent = skill;
-
-            // Create a remove button
-            const removeButton = document.createElement("button");
-            removeButton.type = "button";
-            removeButton.className = "remove-skill";
-            removeButton.textContent = "x";
-            removeButton.addEventListener("click", () => li.remove());
-
-            // Append the skill text and remove button to the list item
-            li.appendChild(skillSpan);
-            li.appendChild(removeButton);
-
-            skillsList.appendChild(li);
+            addSkill(skill);
             skillInput.value = "";
         }
     });
 
-    skillsList.addEventListener("click", (e) => {
-        if (e.target && e.target.classList.contains("remove-skill")) {
-            e.target.parentElement.remove();
-        }
+    // Bind remove functionality to existing skills on page load
+    skillsList.querySelectorAll(".skill-tag").forEach((skillTag) => {
+        const removeButton = skillTag.querySelector(".remove-skill");
+        removeButton.addEventListener("click", () => skillTag.remove());
     });
 
-    // Education Functionality
-    const educationSection = document.getElementById("education-section");
+    // Add Education
     document.getElementById("add-education").addEventListener("click", () => {
         const div = document.createElement("div");
         div.className = "education-entry";
@@ -114,8 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
         educationSection.appendChild(div);
     });
 
-    // Experience Functionality
-    const experienceSection = document.getElementById("experience-section");
+    // Add Experience
     document.getElementById("add-experience").addEventListener("click", () => {
         const div = document.createElement("div");
         div.className = "experience-entry";
@@ -132,8 +173,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Save Resume
     document.getElementById("save-resume").addEventListener("click", () => {
-        const skills = Array.from(document.querySelectorAll("#skills-list .skill-tag")).map(skill =>
-            skill.textContent.replace(" x", "").trim()
+        const skills = Array.from(document.querySelectorAll("#skills-list .skill-tag span")).map(skillSpan =>
+            skillSpan.textContent.trim()
         );
 
         const education = Array.from(document.querySelectorAll(".education-entry")).map(entry => ({
