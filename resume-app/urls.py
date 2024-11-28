@@ -19,7 +19,8 @@ from django.urls import path
 
 from resume_build.views import login_view, register_view, logout_view, index, create_resume, save_resume, \
     show_resume, rewrite_resume_view, match_score_page, generate_cover_letter, \
-    download_template_resume, download_template_pdf, template_preview, regenerate_cover_letter
+    download_template_resume, download_template_pdf, template_preview, regenerate_cover_letter, \
+    regenerate_resume, refresh_match_score, download_cover_letter
 
 urlpatterns = [
     path('', index, name='index'),
@@ -38,6 +39,8 @@ urlpatterns = [
     path('download_template/<str:template_id>/', download_template_pdf, name='download_template'),
     path('template_preview/', template_preview, name='template_preview'),
     path('regenerate_cover_letter/', regenerate_cover_letter, name='regenerate_cover_letter'),
-
+    path('regenerate_resume/', regenerate_resume, name='regenerate_resume'),
+    path('refresh_match_score/', refresh_match_score, name='refresh_match_score'),
+    path('download_cover_letter/', download_cover_letter, name='download_cover_letter'),
 
 ]

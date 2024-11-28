@@ -11,4 +11,11 @@
     {% else %}
     <p>No rewritten resume available.</p>
     {% endif %}
+    <div style="text-align: center; margin-top: 20px;">
+        <form method="POST" action="{% url 'regenerate_resume' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning">Regenerate Resume</button>
+        </form>
+    </div>
+</div> 
 {% endblock %}

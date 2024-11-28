@@ -310,6 +310,27 @@ def rewrite_resume_view(request):
         return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
+def regenerate_resume(request):
+    if request.method == "POST":
+        user_id = request.session['info']['id']
+
+        # Fetch job details
+        job = Job.objects.filter(user_id=user_id).first()
+
+        if not job:
+            messages.error(request, "No job information available to regenerate the resume.")
+            return redirect('show_resume')
+
+        # Regenerate the resume
+        rewritten_resume = rewrite_resume(user_id, job.job_title, job.description)
+        request.session['rewritten_resume'] = rewritten_resume
+
+        messages.success(request, "Resume regenerated successfully!")
+        return redirect('show_resume')
+
+    return JsonResponse({"error": "Invalid request method."}, status=400)
+
+
 def fetch_resume_content(request, user):
     """
     Fetch raw and processed resume content.
@@ -401,6 +422,38 @@ def match_score_page(request):
         'processed_degree_report': processed_degree_report,
     })
 
+def refresh_match_score(request):
+    if request.method == "POST":
+        user_id = request.session['info']['id']
+
+        # Fetch job details
+        job = Job.objects.filter(user_id=user_id).first()
+
+        if not job:
+            messages.error(request, "No job information available to refresh the match score.")
+            return redirect('match_score_page')
+
+        # Recalculate the match score
+        try:
+            # Fetch raw and processed resume content
+            user = User.objects.get(id=user_id)
+            raw_resume_content, processed_resume_content = fetch_resume_content(request, user)
+
+            # Calculate match scores and reports
+            calculate_skill_scores(job, raw_resume_content, processed_resume_content)
+
+            # Generate match score reports and refresh results
+            messages.success(request, "Match scores refreshed successfully!")
+        except Exception as e:
+            print(f"Error refreshing match score: {e}")
+            messages.error(request, "An error occurred while refreshing the match score.")
+
+        return redirect('match_score_page')
+
+    return JsonResponse({"error": "Invalid request method."}, status=400)
+
+
+
 def generate_cover_letter(request):
     """
     Generates or retrieves the user's cover letter based on the job description and rewritten resume.
@@ -459,6 +512,55 @@ def generate_cover_letter(request):
         return render(request, 'resume_build/cover_letter.html', {
             'error': 'An error occurred while generating the cover letter.',
         })
+
+
+def download_cover_letter(request):
+    """
+    Generate a PDF for the cover letter content and serve it for download.
+    """
+    try:
+        # Fetch the cover letter from the session
+        cover_letter = request.session.get('generated_cover_letter', None)
+
+        if not cover_letter:
+            return HttpResponse("No cover letter available. Please generate one first.", status=404)
+
+        # Render only the cover letter content into a minimal HTML template
+        html_content = f"""
+        <html>
+        <head>
+            <title>Cover Letter</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }}
+                h2 {{ color: #333; }}
+                p {{ margin: 10px 0; }}
+                ul {{ margin: 10px 0; margin-bottom: 2px; padding-bottom: 2px; }}
+                ul li {{ margin-bottom: 2px; padding-bottom: 2px; }}
+            </style>
+        </head>
+        <body>
+            {cover_letter}
+        </body>
+        </html>
+        """
+
+        # Create a PDF buffer
+        pdf_buffer = BytesIO()
+        pisa_status = pisa.CreatePDF(BytesIO(html_content.encode('utf-8')), dest=pdf_buffer)
+
+        if pisa_status.err:
+            return HttpResponse('Error generating PDF', status=500)
+
+        # Serve the PDF as a downloadable response
+        pdf_buffer.seek(0)
+        response = HttpResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="cover_letter.pdf"'
+        return response
+
+    except Exception as e:
+        print(f"Error generating cover letter PDF: {e}")
+        return HttpResponse("An error occurred while generating the cover letter PDF.", status=500)
+
 
 def regenerate_cover_letter(request):
     """
@@ -521,6 +623,8 @@ def template_preview(request):
     templates = [
         {'name': 'Template 1', 'id': 'template_1'},
         {'name': 'Template 2', 'id': 'template_2'},
+        {'name': 'Template 3', 'id': 'template_3'},
+        {'name': 'Template 4', 'id': 'template_4'},
     ]
 
     return render(request, 'resume_build/template_preview.html', {
@@ -535,6 +639,8 @@ def download_template_pdf(request, template_id):
     template_mapping = {
         'template_1': 'resume_templates/template1.html',
         'template_2': 'resume_templates/template2.html',
+        'template_3': 'resume_templates/template3.html',
+        'template_4': 'resume_templates/template4.html',
     }
 
     template_path = template_mapping.get(template_id, 'resume_build/templates/template_1.html')

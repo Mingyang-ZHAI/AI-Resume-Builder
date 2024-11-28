@@ -9,7 +9,6 @@
     <div class="template-card">
         <iframe src="{% url 'download_template' template.id %}" frameborder="0"></iframe>
         <div class="template-info">
-            <h3>{{ template.name }}</h3>
             <a href="{% url 'download_template' template.id %}" class="btn">Download</a>
         </div>
     </div>
