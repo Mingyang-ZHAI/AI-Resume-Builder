@@ -1,0 +1,17 @@
+{% extends 'resume_build/base.html' %}
+
+{% block title %}Generated Cover Letter{% endblock %}
+
+{% block content %}
+<h1>Generated Cover Letter</h1>
+
+{% if error %}
+    <div class="error-message">
+        <p>{{ error }}</p>
+    </div>
+{% else %}
+    <div class="cover-letter-container">
+        {{ cover_letter|safe }}
+    </div>
+{% endif %}
+{% endblock %}

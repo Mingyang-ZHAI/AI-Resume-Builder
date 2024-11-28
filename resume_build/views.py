@@ -465,3 +465,63 @@ def match_score_page(request):
         'raw_degree_report': raw_degree_report,
         'processed_degree_report': processed_degree_report,
     })
+
+def generate_cover_letter(request):
+    """
+    Generate a cover letter based on the user's rewritten resume, job title, and job description.
+    """
+    try:
+        user_id = request.session['info']['id']
+        user = User.objects.get(id=user_id)
+
+        # Fetch the job details
+        job = Job.objects.filter(user_id=user_id).first()
+        if not job:
+            return render(request, 'resume_build/cover_letter.html', {
+                "error": "Job details not found. Please enter job title and description first."
+            })
+
+        # Fetch the rewritten resume
+        rewritten_resume = request.session.get('rewritten_resume')
+        if not rewritten_resume:
+            return render(request, 'resume_build/cover_letter.html', {
+                "error": "Rewritten resume not found. Please generate the resume first."
+            })
+
+        # Prepare the AI prompt
+        prompt = f"""
+        Write a professional and compelling cover letter for a {job.job_title} position.
+        Job Description: {job.description}
+
+        Base the cover letter on the following resume:
+        {rewritten_resume}
+
+        Ensure the tone is professional, enthusiastic, and tailored to the job description.
+        Highlight relevant skills and achievements, and add industry-appropriate points if necessary.
+        Make sure not to make up information. Use the resume as a reference for the cover letter.
+        Output only the formatted cover letter. Do not include any additional notes, explanations, or comments.
+        Use appropriate headings (e.g., <h2>, <h3>), paragraphs (<p>), and bullet points (<ul>, <li>) where necessary.
+        Maintain a professional and engaging tone and formatting throughout the cover letter.
+        """
+
+        # Call the AI API (assuming the same setup as your resume rewriting)
+        client = OpenAI(
+        base_url="https://api.studio.nebius.ai/v1/",
+        api_key="eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwNjE1OTMwMzEwNTQyOTIxNzM4OCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg5MDMzMTk3OCwidXVpZCI6IjEyZWExYTE0LWY4MDEtNGFjMy1hNDJkLWQ5NmVjNTQ4M2M5ZSIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTI1VDIwOjEyOjU4KzAwMDAifQ.HQ1oPQQGkwiIi8BJGh3459jj4pEbhOrp387-kpQ3xkY",
+        )
+        completion = client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3.1-70B-Instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.6,
+        )
+        cover_letter = json.loads(completion.to_json())['choices'][0]['message']['content']
+
+        # Pass the generated cover letter to the template
+        return render(request, 'resume_build/cover_letter.html', {
+            "cover_letter": cover_letter,
+        })
+    except Exception as e:
+        print(f"Error generating cover letter: {e}")
+        return render(request, 'resume_build/cover_letter.html', {
+            "error": f"An error occurred: {e}"
+        })
