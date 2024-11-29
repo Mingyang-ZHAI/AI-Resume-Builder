@@ -63,7 +63,14 @@ Match Score Breakdown
                 </div>
             </div>
         </div>
-
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <form method="POST" action="{% url 'refresh_match_score' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning">Refresh Score</button>
+            </form>
+        </div>
+        
         <!-- Footer Section -->
         <div class="footer-custom">
             <p>Ready to take the next step? Keep refining your resume and unlock your potential!</p>

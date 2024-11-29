@@ -14,4 +14,16 @@
         {{ cover_letter|safe }}
     </div>
 {% endif %}
+<br><br>
+<div style="text-align: center; margin-top: 20px;">
+    <form method="GET" action="{% url 'download_cover_letter' %}">
+        <button type="submit" class="btn btn-primary">Download Cover Letter</button>
+    </form>
+</div>
+<br><br>
+<form method="POST" action="{% url 'regenerate_cover_letter' %}">
+    {% csrf_token %}
+    <br><br>
+    <button type="submit" class="btn">Regenerate Cover Letter</button>
+</form>
 {% endblock %}

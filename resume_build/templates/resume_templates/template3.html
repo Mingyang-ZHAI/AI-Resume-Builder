@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 1px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #3498db;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 20px;
+            color: #3498db;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+        }
+
+        p, ul {
+            line-height: 1.6;
+            font-size: 16px;
+            
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        ul li {
+            margin-bottom: 8px;
+        }
+
+        ul li::before {
+            content: "•";
+            color: #3498db;
+            font-weight: bold;
+            display: inline-block;
+            width: 20px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+            {{ rewritten_resume|safe }}
+    </div>
+
+</body>
+</html>

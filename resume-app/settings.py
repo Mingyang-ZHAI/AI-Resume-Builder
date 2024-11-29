@@ -134,3 +134,5 @@ MESSAGE_TAGS = {
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'resume_build/static')]
 
 LOGIN_URL = '/'
+
+X_FRAME_OPTIONS = 'SAMEORIGIN'

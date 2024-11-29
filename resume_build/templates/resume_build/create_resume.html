@@ -53,8 +53,29 @@
     <div id="experience-section"></div>
     <button type="button" id="add-experience">Add Experience</button>
 
+    <br><br>
+
+    <!-- Save Resume Button -->
     <button type="button" id="save-resume">Save Resume</button>
+
 </form>
+
+    <br><br><br>
+
+    <form method="POST" action="/show_resume/">
+        {% csrf_token %}
+        <div>
+            <label for="job_title">Job Title:</label>
+            <input type="text" id="job_title" name="job_title" value="{{ job_data.job_title }}" required>
+        </div>
+        <div>
+            <label for="description">Description:</label>
+            <textarea id="description" name="description" required>{{ job_data.description }}</textarea>
+        </div>
+        <br><br>
+        <button type="submit" class="btn btn-primary">Build My Resume</button>
+    </form>
+    
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
@@ -206,6 +227,7 @@ document.addEventListener("DOMContentLoaded", () => {
             education: education,
             experience: experience
         };
+
 
         fetch("/save/", {
             method: "POST",

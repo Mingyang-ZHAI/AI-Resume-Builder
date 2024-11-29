@@ -1,12 +1,4 @@
 import json
-import time
-import re
-
-import openai
-import pdfkit
-import markdown
-from sklearn.metrics.pairwise import cosine_similarity
-from bs4 import BeautifulSoup
 from io import BytesIO
 from xhtml2pdf import pisa
 
@@ -17,7 +9,7 @@ from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from openai import OpenAI
 
-from resume_build.forms import LoginForm, JobForm
+from resume_build.forms import LoginForm
 from resume_build.models import User, Education, Experience, Job
 from .utils.match_score import calculate_overall_score, calculate_skill_scores, calculate_title_degree_scores, generate_title_degree_report
 
@@ -80,10 +72,18 @@ def create_resume(request):
     experiences = Experience.objects.filter(user_id=request.session['info']['id']).values()
     experiences = json.dumps(list(experiences))
 
+    # Fetch the saved job data
+    job = Job.objects.filter(user_id=user.id).first()
+    job_data = {
+        'job_title': job.job_title if job else '',
+        'description': job.description if job else ''
+    }
+
     return render(request, 'resume_build/create_resume.html', {
         'resume_data': user,
         'educations': educations,
-        'experiences': experiences
+        'experiences': experiences,
+        'job_data': job_data  # Pass job data to the template
     })
 
 
@@ -164,39 +164,20 @@ def save_resume(request):
         if experience_objs:
             Experience.objects.bulk_create(experience_objs)
 
+        # Update job title and description
+        job_title = res_data.get('job_title', '')
+        description = res_data.get('description', '')
+        Job.objects.update_or_create(
+            user_id=user,
+            defaults={'job_title': job_title, 'description': description}
+        )
+        
         return JsonResponse({'status': 'success', 'message': 'Your resume has been successfully updated.'}, status=200)
 
     except Exception as e:
         print(f"Error: {e}")
         return JsonResponse({'status': 'error', 'message': f'An error occurred: {e}'}, status=400)
 
-
-
-
-def job_description(request):
-    user = User.objects.get(id=request.session['info']['id'])
-    if request.method == 'POST':
-        job_title = request.POST.get('job_title', '').strip()
-        description = request.POST.get('description', '').strip()
-
-        if not job_title or not description:
-            return render(request, 'resume_build/job_description.html', {
-                'error': 'Both job title and description are required.'
-            })
-
-        # Save job data (if needed)
-        job_data, created = Job.objects.update_or_create(
-            user_id=user,
-            defaults={'job_title': job_title, 'description': description}
-        )
-
-        # Generate the rewritten resume using AI
-        rewritten_resume = rewrite_resume(user.id, job_title)
-
-        # Redirect to show_resume with the rewritten resume
-        return redirect(f'/show_resume/?rewritten_resume={json.dumps(rewritten_resume)}')
-
-    return render(request, 'resume_build/job_description.html')
 
 
 def show_resume(request):
@@ -234,60 +215,6 @@ def show_resume(request):
         'rewritten_resume': rewritten_resume,
     }
     return render(request, 'resume.html', context)
-
-
-def download_pdf(request):
-    """
-    Generate a PDF from the rewritten resume and serve it for download.
-    """
-    user = User.objects.get(id=request.session['info']['id'])
-    rewritten_resume = request.session.get('rewritten_resume', None)
-
-    if not rewritten_resume:
-        return HttpResponse("No rewritten resume available. Please create one first.", status=404)
-
-    # Create context for the PDF
-    context = {
-        'name': user.name,
-        'username': user.username,
-        'country': user.country,
-        'city': user.city,
-        'phone': user.phone,
-        'email': user.email,
-        'rewritten_resume': rewritten_resume,
-    }
-
-    # Render the full HTML template
-    html_content = render_to_string('resume.html', context)
-
-    # Parse the HTML using BeautifulSoup
-    soup = BeautifulSoup(html_content, 'html.parser')
-
-    # Find and remove the navbar
-    navbar = soup.find(class_="navbar")  # Assuming the navbar has the class 'navbar'
-    if navbar:
-        navbar.decompose()  # Remove the navbar from the HTML
-        
-    # Find and remove the footer
-    footer = soup.find('footer', class_="footer")  # Assuming the footer has a class 'footer'
-    if footer:
-        footer.decompose()  # Remove the footer from the HTML
-
-    # Get the modified HTML
-    modified_html_content = str(soup)
-
-    # Create a PDF file in memory
-    pdf_buffer = BytesIO()
-    pdf_status = pisa.CreatePDF(BytesIO(modified_html_content.encode('utf-8')), dest=pdf_buffer)
-
-    if pdf_status.err:
-        return HttpResponse('Error generating PDF', status=500)
-
-    # Serve the PDF file as a downloadable response
-    pdf_buffer.seek(0)
-    response = HttpResponse(pdf_buffer, content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="resume.pdf"'
-    return response
 
 
 def rewrite_resume(user_id, job_title, job_description):
@@ -373,6 +300,27 @@ def rewrite_resume_view(request):
         return JsonResponse({"redirect_url": "/show_resume/"})
     else:
         return JsonResponse({"error": "Invalid request method"}, status=400)
+
+
+def regenerate_resume(request):
+    if request.method == "POST":
+        user_id = request.session['info']['id']
+
+        # Fetch job details
+        job = Job.objects.filter(user_id=user_id).first()
+
+        if not job:
+            messages.error(request, "No job information available to regenerate the resume.")
+            return redirect('show_resume')
+
+        # Regenerate the resume
+        rewritten_resume = rewrite_resume(user_id, job.job_title, job.description)
+        request.session['rewritten_resume'] = rewritten_resume
+
+        messages.success(request, "Resume regenerated successfully!")
+        return redirect('show_resume')
+
+    return JsonResponse({"error": "Invalid request method."}, status=400)
 
 
 def fetch_resume_content(request, user):
@@ -466,62 +414,235 @@ def match_score_page(request):
         'processed_degree_report': processed_degree_report,
     })
 
+def refresh_match_score(request):
+    if request.method == "POST":
+        user_id = request.session['info']['id']
+
+        # Fetch job details
+        job = Job.objects.filter(user_id=user_id).first()
+
+        if not job:
+            messages.error(request, "No job information available to refresh the match score.")
+            return redirect('match_score_page')
+
+        # Recalculate the match score
+        try:
+            # Fetch raw and processed resume content
+            user = User.objects.get(id=user_id)
+            raw_resume_content, processed_resume_content = fetch_resume_content(request, user)
+
+            # Calculate match scores and reports
+            calculate_skill_scores(job, raw_resume_content, processed_resume_content)
+
+            # Generate match score reports and refresh results
+            messages.success(request, "Match scores refreshed successfully!")
+        except Exception as e:
+            print(f"Error refreshing match score: {e}")
+            messages.error(request, "An error occurred while refreshing the match score.")
+
+        return redirect('match_score_page')
+
+    return JsonResponse({"error": "Invalid request method."}, status=400)
+
+
+
 def generate_cover_letter(request):
     """
-    Generate a cover letter based on the user's rewritten resume, job title, and job description.
+    Generates or retrieves the user's cover letter based on the job description and rewritten resume.
     """
     try:
-        user_id = request.session['info']['id']
-        user = User.objects.get(id=user_id)
+        # Get the user and job details
+        user = User.objects.get(id=request.session['info']['id'])
+        job = Job.objects.filter(user_id=user.id).first()
 
-        # Fetch the job details
-        job = Job.objects.filter(user_id=user_id).first()
         if not job:
-            return render(request, 'resume_build/cover_letter.html', {
-                "error": "Job details not found. Please enter job title and description first."
+            return render(request, 'cover_letter.html', {
+                'error': 'No job description found. Please add a job description first.',
             })
 
-        # Fetch the rewritten resume
-        rewritten_resume = request.session.get('rewritten_resume')
-        if not rewritten_resume:
-            return render(request, 'resume_build/cover_letter.html', {
-                "error": "Rewritten resume not found. Please generate the resume first."
-            })
+        # Check if a cover letter is already stored in the session
+        if 'generated_cover_letter' in request.session:
+            cover_letter = request.session['generated_cover_letter']
+        else:
+            # Generate the cover letter using AI
+            rewritten_resume = request.session.get('rewritten_resume', '')
+            prompt = f"""
+            Write a professional and compelling cover letter for a {job.job_title} position.
+            Job Description: {job.description}
 
-        # Prepare the AI prompt
-        prompt = f"""
-        Write a professional and compelling cover letter for a {job.job_title} position.
-        Job Description: {job.description}
+            Base the cover letter on the following resume:
+            {rewritten_resume}
 
-        Base the cover letter on the following resume:
-        {rewritten_resume}
+            Ensure the tone is professional, enthusiastic, and tailored to the job description.
+            Highlight relevant skills and achievements, and add industry-appropriate points if necessary.
+            Make sure not to make up information. Use the resume as a reference for the cover letter.
+            Output only the formatted cover letter. Do not include any additional notes, explanations, or comments.
+            Use appropriate headings (e.g., <h2>, <h3>), paragraphs (<p>), and bullet points (<ul>, <li>) where necessary.
+            Maintain a professional and engaging tone and formatting throughout the cover letter.
+            """
 
-        Ensure the tone is professional, enthusiastic, and tailored to the job description.
-        Highlight relevant skills and achievements, and add industry-appropriate points if necessary.
-        Make sure not to make up information. Use the resume as a reference for the cover letter.
-        Output only the formatted cover letter. Do not include any additional notes, explanations, or comments.
-        Use appropriate headings (e.g., <h2>, <h3>), paragraphs (<p>), and bullet points (<ul>, <li>) where necessary.
-        Maintain a professional and engaging tone and formatting throughout the cover letter.
-        """
+            # Call the AI API (assuming the same setup as your resume rewriting)
+            client = OpenAI(
+            base_url="https://api.studio.nebius.ai/v1/",
+            api_key="eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwNjE1OTMwMzEwNTQyOTIxNzM4OCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg5MDMzMTk3OCwidXVpZCI6IjEyZWExYTE0LWY4MDEtNGFjMy1hNDJkLWQ5NmVjNTQ4M2M5ZSIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTI1VDIwOjEyOjU4KzAwMDAifQ.HQ1oPQQGkwiIi8BJGh3459jj4pEbhOrp387-kpQ3xkY",
+            )
+            completion = client.chat.completions.create(
+                model="meta-llama/Meta-Llama-3.1-70B-Instruct",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.6,
+            )
+            cover_letter = json.loads(completion.to_json())['choices'][0]['message']['content']
 
-        # Call the AI API (assuming the same setup as your resume rewriting)
-        client = OpenAI(
-        base_url="https://api.studio.nebius.ai/v1/",
-        api_key="eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwNjE1OTMwMzEwNTQyOTIxNzM4OCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg5MDMzMTk3OCwidXVpZCI6IjEyZWExYTE0LWY4MDEtNGFjMy1hNDJkLWQ5NmVjNTQ4M2M5ZSIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTI1VDIwOjEyOjU4KzAwMDAifQ.HQ1oPQQGkwiIi8BJGh3459jj4pEbhOrp387-kpQ3xkY",
-        )
-        completion = client.chat.completions.create(
-            model="meta-llama/Meta-Llama-3.1-70B-Instruct",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.6,
-        )
-        cover_letter = json.loads(completion.to_json())['choices'][0]['message']['content']
+            # Save the generated cover letter in the session
+            request.session['generated_cover_letter'] = cover_letter
 
-        # Pass the generated cover letter to the template
-        return render(request, 'resume_build/cover_letter.html', {
-            "cover_letter": cover_letter,
-        })
+        # Render the cover letter
+        return render(request, 'resume_build/cover_letter.html', {'cover_letter': cover_letter})
+
     except Exception as e:
         print(f"Error generating cover letter: {e}")
         return render(request, 'resume_build/cover_letter.html', {
-            "error": f"An error occurred: {e}"
+            'error': 'An error occurred while generating the cover letter.',
         })
+
+
+def download_cover_letter(request):
+    """
+    Generate a PDF for the cover letter content and serve it for download.
+    """
+    try:
+        # Fetch the cover letter from the session
+        cover_letter = request.session.get('generated_cover_letter', None)
+
+        if not cover_letter:
+            return HttpResponse("No cover letter available. Please generate one first.", status=404)
+
+        # Render only the cover letter content into a minimal HTML template
+        html_content = f"""
+        <html>
+        <head>
+            <title>Cover Letter</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }}
+                h2 {{ color: #333; }}
+                p {{ margin: 10px 0; }}
+                ul {{ margin: 10px 0; margin-bottom: 2px; padding-bottom: 2px; }}
+                ul li {{ margin-bottom: 2px; padding-bottom: 2px; }}
+            </style>
+        </head>
+        <body>
+            {cover_letter}
+        </body>
+        </html>
+        """
+
+        # Create a PDF buffer
+        pdf_buffer = BytesIO()
+        pisa_status = pisa.CreatePDF(BytesIO(html_content.encode('utf-8')), dest=pdf_buffer)
+
+        if pisa_status.err:
+            return HttpResponse('Error generating PDF', status=500)
+
+        # Serve the PDF as a downloadable response
+        pdf_buffer.seek(0)
+        response = HttpResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="cover_letter.pdf"'
+        return response
+
+    except Exception as e:
+        print(f"Error generating cover letter PDF: {e}")
+        return HttpResponse("An error occurred while generating the cover letter PDF.", status=500)
+
+
+def regenerate_cover_letter(request):
+    """
+    Clears the stored cover letter and regenerates a new one.
+    """
+    if request.method == "POST":
+        if 'generated_cover_letter' in request.session:
+            del request.session['generated_cover_letter']
+        return redirect('generate_cover_letter')
+    return JsonResponse({"error": "Invalid request method."}, status=400)
+
+
+def download_template_resume(request):
+    """
+    Generate a PDF for the selected template using the rewritten resume.
+    """
+    try:
+        # Fetch user information
+        user = User.objects.get(id=request.session['info']['id'])
+        rewritten_resume = request.session.get('rewritten_resume')
+
+        if not rewritten_resume:
+            return HttpResponse("No rewritten resume available. Please generate one first.", status=404)
+
+        # Get the selected template from the query parameter
+        template_name = request.GET.get('template', 'template1')  # Default to template1
+
+        # Prepare context for rendering the template
+        context = {
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone,
+            'city': user.city,
+            'country': user.country,
+            'rewritten_resume': rewritten_resume,
+        }
+
+        # Render the selected template to HTML
+        template_path = f'resume_templates/{template_name}.html'
+        html = render_to_string(template_path, context)
+
+        # Convert HTML to PDF using xhtml2pdf
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{user.name}_resume.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse('Error generating PDF', status=500)
+        return response
+
+    except Exception as e:
+        print(f"Error generating PDF: {e}")
+        return HttpResponse(f"An error occurred: {e}", status=500)
+
+def template_preview(request):
+    user_id = request.session['info']['id']
+    job = Job.objects.filter(user_id=user_id).first()
+    rewritten_resume = request.session.get('rewritten_resume', '')
+
+    templates = [
+        {'name': 'Template 1', 'id': 'template_1'},
+        {'name': 'Template 2', 'id': 'template_2'},
+        {'name': 'Template 3', 'id': 'template_3'},
+        {'name': 'Template 4', 'id': 'template_4'},
+    ]
+
+    return render(request, 'resume_build/template_preview.html', {
+        'rewritten_resume': rewritten_resume,
+        'job': job,
+        'templates': templates,
+    })
+
+def download_template_pdf(request, template_id):
+    user_id = request.session['info']['id']
+    rewritten_resume = request.session.get('rewritten_resume', '')
+    template_mapping = {
+        'template_1': 'resume_templates/template1.html',
+        'template_2': 'resume_templates/template2.html',
+        'template_3': 'resume_templates/template3.html',
+        'template_4': 'resume_templates/template4.html',
+    }
+
+    template_path = template_mapping.get(template_id, 'resume_build/templates/template_1.html')
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="resume_{template_id}.pdf"'
+
+    html = render_to_string(template_path, {'rewritten_resume': rewritten_resume})
+    pisa_status = pisa.CreatePDF(html, dest=response)
+
+    if pisa_status.err:
+        return HttpResponse(f'We had some errors <pre>{html}</pre>')
+    return response
