@@ -72,6 +72,16 @@ def create_resume(request):
     experiences = Experience.objects.filter(user_id=request.session['info']['id']).values()
     experiences = json.dumps(list(experiences))
 
+    # Pass blank fields if the user data is None or invalid
+    resume_data = {
+        'name': user.name or '',
+        'country': user.country or '',
+        'city': user.city or '',
+        'phone': user.phone or '',
+        'email': user.email or '',
+        'skills': user.skills or [],
+    }
+
     # Fetch the saved job data
     job = Job.objects.filter(user_id=user.id).first()
     job_data = {
@@ -80,7 +90,7 @@ def create_resume(request):
     }
 
     return render(request, 'resume_build/create_resume.html', {
-        'resume_data': user,
+        'resume_data': resume_data,
         'educations': educations,
         'experiences': experiences,
         'job_data': job_data  # Pass job data to the template
