@@ -570,6 +570,10 @@ def download_template_resume(request):
     Generate a PDF for the selected template using the rewritten resume.
     """
     try:
+        # Check if user session is present
+        if 'info' not in request.session:
+            raise KeyError("User session is missing")
+
         # Fetch user information
         user = User.objects.get(id=request.session['info']['id'])
         rewritten_resume = request.session.get('rewritten_resume')
