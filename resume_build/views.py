@@ -1,12 +1,4 @@
 import json
-import time
-import re
-
-import openai
-import pdfkit
-import markdown
-from sklearn.metrics.pairwise import cosine_similarity
-from bs4 import BeautifulSoup
 from io import BytesIO
 from xhtml2pdf import pisa
 
@@ -17,7 +9,7 @@ from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from openai import OpenAI
 
-from resume_build.forms import LoginForm, JobForm
+from resume_build.forms import LoginForm
 from resume_build.models import User, Education, Experience, Job
 from .utils.match_score import calculate_overall_score, calculate_skill_scores, calculate_title_degree_scores, generate_title_degree_report
 
