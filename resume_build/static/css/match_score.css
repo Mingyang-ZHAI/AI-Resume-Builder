@@ -1,4 +1,9 @@
 /* Match Score Page Styling */
+.match-score-page {
+    background-color: #1a1b25;
+    color: var(--text-primary);
+}
+
 .match-score-page .header {
     text-align: center;
     margin-bottom: 40px;
@@ -6,12 +11,12 @@
 
 .match-score-page .header h1 {
     font-size: 32px;
-    color: #1a73e8;
+    color: var(--primary-color);
 }
 
 .match-score-page .header .subtitle {
     font-size: 18px;
-    color: #666;
+    color: var(--text-secondary);
 }
 
 .match-score-page .columns {
@@ -22,16 +27,16 @@
 }
 
 .match-score-page .column {
-    background-color: #ffffff;
+    background-color: #2a2d36;
     border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
     padding: 20px;
     width: 48%;
 }
 
 .match-score-page .column h2 {
     font-size: 24px;
-    color: #1a73e8;
+    color: var(--primary-color);
     text-align: center;
     margin-bottom: 20px;
 }
@@ -39,7 +44,7 @@
 .match-score-page .column .score {
     font-size: 20px;
     font-weight: bold;
-    color: #333;
+    color: var(--text-primary);
     margin-bottom: 20px;
 }
 
@@ -51,36 +56,38 @@
 
 .match-score-page .column ul li {
     font-size: 16px;
+    color: var(--text-secondary);
     margin-bottom: 10px;
 }
 
 .match-score-page .highlight {
-    color: #1a73e8;
+    color: var(--primary-color);
     font-weight: bold;
 }
 
 .match-score-page .report-section {
     margin-top: 30px;
     padding-top: 20px;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid #444;
 }
 
 .match-score-page .report-section h3 {
     font-size: 18px;
-    color: #1a73e8;
+    color: var(--primary-color);
 }
 
 .match-score-page .report-section p {
     font-size: 16px;
     margin: 8px 0;
+    color: var(--text-primary);
 }
 
 .match-score-page .footer-custom {
-    background-color: #e8f0fe;
+    background-color: #2a2d36;
     padding: 20px;
     text-align: center;
     margin-top: 40px;
     border-radius: 8px;
     font-size: 16px;
-    color: #333;
+    color: var(--text-primary);
 }

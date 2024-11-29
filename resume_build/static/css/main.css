@@ -1,70 +1,227 @@
+/* Modern Tech Theme Variables */
+:root {
+    --primary-color: #4cc9f0;
+    --secondary-color: #184c7c;
+    --accent-color: #ff6f61;
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --bg-primary: #1a1b25;
+    --bg-secondary: #222831;
+    --success-color: #4cc9f0;
+    --error-color: #ef476f;
+  }
 
-/* Reset and basic styling */
+/* Reset and base styles */
 body {
-    margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
-    background-color: #f9f9f9;
-    color: #333;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+  color: var(--text-primary);
+  line-height: 1.6;
 }
 
+/* Modern Navbar */
 header.navbar {
-    background-color: #007bff;
-    color: white;
-    padding: 10px 0;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  background-color: rgba(26, 27, 37, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
 }
 
 header.navbar .container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
 }
 
 header.navbar .brand {
-    font-size: 1.5rem;
-    font-weight: bold;
+  font-family: 'Fira Code', monospace;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 header.navbar nav ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    gap: 15px;
-}
-
-header.navbar nav ul li {
-    display: inline;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 1.5rem;
 }
 
 header.navbar nav ul li a {
-    color: white;
-    text-decoration: none;
-    padding: 5px 10px;
-    border-radius: 3px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 header.navbar nav ul li a:hover {
-    background-color: #0056b3;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
 }
 
+/* Main Content Area */
 main.content {
-    max-width: 1200px;
-    margin: 20px auto;
-    padding: 20px;
-    background: white;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: rgba(34, 40, 49, 0.9);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-footer.footer {
-    text-align: center;
-    padding: 10px 0;
-    background-color: #f1f1f1;
-    margin-top: 20px;
-    border-top: 1px solid #ddd;
+/* Welcome Message */
+.welcome-message {
+  font-size: 1.6rem;
+  margin-bottom: 1rem;
+  text-align: center;
 }
+
+/* Subtext */
+.subtext {
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Form Elements */
+input, textarea, select {
+  background: var(--bg-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  width: 100%;
+  margin-bottom: 1rem;
+  font-family: 'Fira Code', monospace;
+  transition: border-color 0.3s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+/* Button Styles */
+button {
+  background: var(--primary-color);
+  color: var(--bg-primary);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Fira Code', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+button::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to bottom right,
+    rgba(var(--primary-color), 0.1),
+    rgba(var(--accent-color), 0.1)
+  );
+  transform: rotate(45deg);
+  transition: 0.5s;
+}
+
+button:hover {
+  background: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(121, 40, 202, 0.3);
+}
+
+/* Footer */
+footer.footer {
+  text-align: center;
+  padding: 2rem 0;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Utility Classes */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+
+
+/* Message Boxes */
+.message-box {
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-family: 'Fira Code', monospace;
+}
+
+.success-message {
+  background: rgba(0, 255, 157, 0.1);
+  border: 1px solid var(--success-color);
+  color: var(--success-color);
+}
+
+.error-message {
+  background: rgba(255, 77, 77, 0.1);
+  border: 1px solid var(--error-color);
+  color: var(--error-color);
+}
+
+/* Card hover effects */
+.card {
+  transition: transform 0.3s ease;
+  border: 1px solid rgba(var(--text-secondary), 0.1);
+  background: rgba(34, 40, 49, 0.8);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Modern scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 4px;
+}
+
+/* Text selection */
+::selection {
+  background: var(--primary-color);
+  color: var(--bg-primary);
+}
+

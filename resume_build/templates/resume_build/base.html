@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Resume Builder{% endblock %}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
 <body>
@@ -20,7 +21,7 @@
                         <li><a href="/job_description/">Job Description</a></li>
                         <li><a href="/show_resume/">View Resume</a></li>
                         <li><a href="/match_score_page/">Match Score</a></li>
-                        <li><a href="{% url 'generate_cover_letter' %}">Cover Letter Generator</a></li>
+                        <li><a href="{% url 'generate_cover_letter' %}">Cover Letter</a></li>
                         <li><a href="/download_pdf/">Download PDF</a></li>
                         <li>
                             <form method="post" action="/logout/" style="display: inline;">

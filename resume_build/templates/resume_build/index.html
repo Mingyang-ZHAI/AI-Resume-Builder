@@ -3,7 +3,7 @@
 {% block title %}Welcome to AI Resume Builder{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="welcome-message">
     <h1>Welcome to AI Resume Builder</h1>
     {% if request.session.info %}
         <p>Welcome, {{ request.session.info.name }}!</p>
