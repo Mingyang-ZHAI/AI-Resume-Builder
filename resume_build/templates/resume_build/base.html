@@ -17,11 +17,11 @@
                 <ul>
                     <li><a href="/index/">Home</a></li>
                     {% if request.session.info %}
-                        <li><a href="/create/">Create Resume</a></li>
-                        <li><a href="/show_resume/">View Resume</a></li>
+                        <li><a href="/create/">Create</a></li>
+                        <li><a href="/show_resume/">View</a></li>
                         <li><a href="/match_score_page/">Match Score</a></li>
                         <li><a href="{% url 'generate_cover_letter' %}">Cover Letter</a></li>
-                        <li><a href="{% url 'template_preview' %}">Download Resume</a></li>
+                        <li><a href="{% url 'template_preview' %}">Download</a></li>
                         <li>
                             <form method="post" action="/logout/" style="display: inline;">
                                 {% csrf_token %}
