@@ -2,3 +2,4 @@ Django==4.2.5
 openai==1.55.3
 scikit_learn==1.5.2
 xhtml2pdf==0.2.16
+pymupdf==1.25.0

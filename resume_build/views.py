@@ -1,13 +1,16 @@
 import json
+import ast
 from io import BytesIO
 from xhtml2pdf import pisa
+from openai import OpenAI
 
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
-from openai import OpenAI
+from django.core.files.storage import FileSystemStorage
+from django.urls import reverse
 
 from resume_build.forms import LoginForm
 from resume_build.models import User, Education, Experience, Job
@@ -660,3 +663,158 @@ def download_template_pdf(request, template_id):
     if pisa_status.err:
         return HttpResponse(f'We had some errors <pre>{html}</pre>')
     return response
+
+def resume_options(request):
+    """Renders the page with two options: Start from scratch or upload."""
+    return render(request, 'resume_build/resume_options.html')
+
+import fitz  # PyMuPDF
+from django.shortcuts import render, redirect
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
+@csrf_exempt
+def upload_resume(request):
+    if request.method == 'POST':
+        uploaded_file = request.FILES['resume_file']
+        pdf_text = extract_text_from_pdf(uploaded_file)
+        # print("pdf_text")
+        # print(pdf_text)
+        resume_data, educations, experiences, job_data = parse_resume_data_by_AI(pdf_text)
+
+        return render(request, 'resume_build/create_resume.html', {
+        'resume_data': resume_data,
+        'educations': educations,
+        'experiences': experiences,
+        'job_data': job_data  # Pass job data to the template
+        })
+    return redirect('resume_options')
+
+def extract_text_from_pdf(pdf_file):
+    pdf_document = fitz.open(stream=pdf_file.read(), filetype="pdf")
+    text = ""
+    for page_num in range(len(pdf_document)):
+        page = pdf_document.load_page(page_num)
+        text += page.get_text()
+    return text
+
+def extract_text_from_response(response):
+    # Split the response by double newlines to isolate blocks
+    blocks = response.strip().split("\n\n")
+
+    # The first block is the job_data dictionary (no variable name assigned, just the dict)
+    job_data_str = blocks[0].strip()
+
+    # The second block should start with "education_data ="
+    education_data_line = blocks[1].strip()
+    # The third block should start with "experience_data ="
+    experience_data_line = blocks[2].strip()
+
+    # Extract the Python objects by removing the "education_data =" and "experience_data =" parts
+    job_data_str = job_data_str.split("=", 1)[1].strip()
+    education_data_str = education_data_line.split("=", 1)[1].strip()
+    experience_data_str = experience_data_line.split("=", 1)[1].strip()
+    
+    # Safely evaluate the strings into Python objects
+    job_data = ast.literal_eval(job_data_str)
+    education_data = ast.literal_eval(education_data_str)
+    experience_data = ast.literal_eval(experience_data_str)
+
+    education_data = json.dumps(education_data)
+    experience_data = json.dumps(experience_data)
+    return job_data, education_data, experience_data
+
+
+def parse_resume_data_by_AI(pdf_text):
+    """
+    Parse the resume data using the AI model.
+    """
+
+    # Pass blank fields if the user data is None or invalid
+    resume_data = {
+        'name': '',
+        'country': '',
+        'city': '',
+        'phone': '',
+        'email': '',
+        'skills': [],
+    }
+
+    education_data =[
+                {
+                    'school_name': '', 
+                    'degree': '', 
+                    'major': '', 
+                    'start_year': '', 
+                    'end_year': '', 
+                    'gpa': ''
+                }, 
+                {
+                    'school_name': '', 
+                    'degree': '', 
+                    'major': '', 
+                    'start_year': '', 
+                    'end_year': '', 
+                    'gpa': ''
+                }
+    ]
+    
+    
+    experience_data = [
+        {
+            'position': '', 
+            'institution_name': '', 
+            'start_year': '', 
+            'end_year': '', 
+            'description': ''
+        }, 
+        {
+            'position': '', 
+            'institution_name': '', 
+            'start_year': '', 
+            'end_year': '', 
+            'description': ''
+        }
+    ]
+    # Fetch the saved job data
+    job_data = {
+        'job_title': '',
+        'description': ''
+    }
+
+
+    prompt = """
+    I have a resume content below:
+    {pdf_text}
+
+    you should parse the resume content for me to generate the data format below.
+    resume_data = {resume_data}
+    education_data = {education_data}
+    experience_data = {experience_data}
+    
+    Your output format should be this:
+    resume_data = ...
+    education_data = ...
+    experience_data = ...
+
+    Make sure you can not make up anything. your answer should base on the content 
+    I offered;
+    If you couldn't find any information about the country or city, left those fields empty.
+    Do not output any words other than the data format.
+    """.format(pdf_text=pdf_text, resume_data=resume_data, education_data=education_data, experience_data=experience_data)
+
+    # Use the existing AI client to fetch the response
+    client = OpenAI(
+        base_url="https://api.studio.nebius.ai/v1/",
+        api_key="eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwNjE1OTMwMzEwNTQyOTIxNzM4OCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg5MDMzMTk3OCwidXVpZCI6IjEyZWExYTE0LWY4MDEtNGFjMy1hNDJkLWQ5NmVjNTQ4M2M5ZSIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTI1VDIwOjEyOjU4KzAwMDAifQ.HQ1oPQQGkwiIi8BJGh3459jj4pEbhOrp387-kpQ3xkY",
+    )
+    completion = client.chat.completions.create(
+        model="meta-llama/Meta-Llama-3.1-70B-Instruct",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.6,
+    )
+    response = json.loads(completion.to_json())['choices'][0]['message']['content']
+
+    resume_data, education_data, experience_data = extract_text_from_response(response)
+
+    return resume_data, education_data, experience_data, job_data

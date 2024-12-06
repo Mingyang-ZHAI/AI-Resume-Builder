@@ -1,0 +1,68 @@
+{% extends 'resume_build/base.html' %}
+
+{% block title %}Resume Options{% endblock %}
+
+{% block content %}
+<div class="title-container">
+    <h1>Choose Your Resume Path:</h1>
+</div>
+
+<div class="resume-options">
+    <div class="option-left">
+        <h2>Start from Scratch</h2>
+        <p>Begin building your resume step by step with our tools.</p>
+        <button type="button" class="btn btn-danger" onclick="window.location.href='{% url 'create_resume' %}'">Start Now</button>
+    </div>
+    <div class="option-right">
+        <h2>Upload Your Resume</h2>
+        <p>Edit your existing resume and give it a new design.</p>
+        <form method="POST" action="{% url 'upload_resume' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="resume_file" accept=".doc,.docx,.pdf,.odt,.htm,.txt" required>
+            <button type="submit" class="btn btn-primary">Upload and Edit</button>
+        </form>
+    </div>
+</div>
+
+<style>
+.resume-options {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+/* Full-page container for centering */
+.title-container {
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    height: 150px; /* Adjust total height above the boxes */
+    text-align: center;
+    margin: 0; /* Remove default margins */
+    box-sizing: border-box;
+}
+
+/* Title styles */
+h1 {
+    color: #fff;
+    font-size: 48px; /* Keep the font size consistent */
+    font-weight: 700;
+    line-height: 1.2; /* Reduce the line spacing */
+    margin: 0; /* Remove margins for tighter spacing */
+}
+
+.option-left, .option-right {
+    width: 45%;
+    text-align: center;
+    border: 1px solid #ccc;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.option-left h2, .option-right h2 {
+    margin-bottom: 10px;
+    color: #fff;
+}
+</style>
+{% endblock %}
+
