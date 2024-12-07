@@ -1,5 +1,32 @@
-# AI-Resume-Builder
-AI-Resume Builder
+# AI Resume Builder
+
+## How to run the application
+
+Here are the instructions on how to install and run this application locally:
+
+* Clone this repository. Instructions on how to clone a repository can be found <a href="https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository">here.</a>
+
+* Create and activate a virtual environment:
+
+<code>python -m venv venv</code>
+
+<code>.\venv\Scripts\activate</code>
+
+* Install the dependencies:
+
+<code>pip install -r requirements.txt</code>
+
+* Go to the views.py file in the resume_build folder and enter your Nebius API key in the first line by replacing ENTER_YOUR_API_KEY_HERE.
+  
+* Run database migrations:
+
+<code>python manage.py migrate</code>
+
+* Run the server:
+
+<code>python manage.py runserver</code>
+
+* Go to http://127.0.0.1:8000/ to access the application.
 
 
 
