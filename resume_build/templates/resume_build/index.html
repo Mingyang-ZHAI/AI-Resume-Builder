@@ -9,7 +9,7 @@
         <p>Welcome, {{ request.session.info.name }}!</p>
         <!-- <a href="{% url 'create_resume' %}" class="btn btn-primary">Create a New Resume</a> -->
         <!-- <button type="button" class="btn btn-danger" onclick="window.location.href='{% url 'create_resume' %}'">Create a New Resume</button> -->
-        <button type="button" class="btn btn-danger" onclick="window.location.href='{% url 'resume_options' %}'">GET START</button>
+        <button type="button" class="btn btn-danger" onclick="window.location.href='{% url 'resume_options' %}'">GET STARTED</button>
         <br>
         <form method="post" action="{% url 'logout' %}" style="margin-top: 10px;">
             {% csrf_token %}
