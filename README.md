@@ -1,5 +1,7 @@
 # AI Resume Builder
 
+**Note**: This repository is a migration from the original repository at [https://github.com/Mingyang096/AI-Resume-Builder](https://github.com/Mingyang096/AI-Resume-Builder). If you were following the previous repository, please consider starring this one to stay updated!
+
 ## How to run the application
 
 Here are the instructions on how to install and run this application locally:
